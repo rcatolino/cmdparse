@@ -10,9 +10,22 @@ fn test_create_option_valid() {
   ctx.create_option(Some("long"), Some("l"), Some("description"), Flags::Defaults).unwrap();
   ctx.create_option(Some("long2"), None, Some("description"), Flags::Defaults).unwrap();
   ctx.create_option(Some("long3"), Some("l"), None, Flags::Defaults).unwrap();
-  ctx.create_option(Some("long3"), None, None, Flags::Defaults).unwrap();
+  ctx.create_option(Some("long4"), None, None, Flags::Defaults).unwrap();
   ctx.create_option(None, Some("r"), Some("description"), Flags::Defaults).unwrap();
   ctx.create_option(None, Some("a"), None, Flags::Defaults).unwrap();
+}
+
+#[test]
+fn test_create_option_print() {
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
+  ctx.create_option(Some("long4"), Some("s"), Some("Description"), Flags::Defaults).unwrap();
+  ctx.create_option(None, Some("t"), Some("Description"), Flags::Defaults).unwrap();
+  ctx.create_option(None, Some("u"), Some("Description"), Flags::TakesOptionalArg).unwrap();
+  ctx.create_option(None, Some("v"), Some("Description"), Flags::TakesArg).unwrap();
+  ctx.create_option(Some("long5"), Some("x"), Some("Description"), Flags::TakesArg).unwrap();
+  ctx.create_option(Some("long6"), None, Some("Description"), Flags::TakesOptionalArg).unwrap();
+  ctx.create_option(Some("long7"), None, None, Flags::Defaults).unwrap();
+  ctx.print_help();
 }
 
 #[test]

@@ -9,6 +9,7 @@
 use std::hashmap::HashMap;
 use std::result::Result;
 
+static min_align: uint = 11;
 pub mod Flags {
   pub static Defaults: uint = 0;
   pub static AcceptMultiple: uint = 1 << 0;
@@ -39,7 +40,10 @@ pub struct OptContext {
   // A list of valid commands.
   commands: ~[~Cmd],
   // The arguments provided by the user.
-  raw_args: ~HashMap<~str, ~RawArg>
+  raw_args: ~HashMap<~str, ~RawArg>,
+  // Align
+  alignment: uint
+
 }
 
 priv struct RawArg {
@@ -115,6 +119,7 @@ impl OptContext {
       options: ~[],   // Valid options
       commands: ~[],  // Valid commands
       raw_args: OptContext::parse(args),
+      alignment: min_align, // Minimum aligment
     }
   }
 
@@ -132,6 +137,10 @@ impl OptContext {
   }
 
   pub fn add_option<'a>(&'a mut self, opt: ~Opt) -> &'a mut OptContext {
+    match opt.long_name {
+      Some(name) => self.alignment = std::cmp::max(self.alignment, name.len() + min_align),
+      None => {}
+    }
     self.options.push(opt);
     self
   }
@@ -141,14 +150,41 @@ impl OptContext {
     println(self.summary);
     println("Valid options :");
     for opt in self.options.iter() {
+      if opt.has_flags(Flags::Hidden) {
+        continue;
+      }
       print("  ");
       match opt.short_name {
-        Some(value) => print!("-{:s},\t", value),
-        None => print("\t")
+        Some(value) => print!("-{:s}", value),
+        None => print("  ")
       }
       match opt.long_name {
-        Some(value) => print!("--{:s},\t\t", value),
-        None => print("\t\t\t")
+        Some(value) => {
+          let mut align = self.alignment - value.len();
+          if opt.short_name.is_some() {
+            print(",");
+          }
+          print!("\t--{:s}", value);
+          if opt.has_flags(Flags::TakesOptionalArg) {
+            print!("[=argument]");
+            align -= 11;
+          } else if opt.has_flags(Flags::TakesArg) {
+            print!("=argument");
+            align -= 9;
+          }
+          print!("{:s}\t", " ".repeat(align));
+        }
+        None => {
+          let mut align = self.alignment;
+          if opt.has_flags(Flags::TakesOptionalArg) {
+            print!(" [argument]");
+            align -= 11;
+          } else if opt.has_flags(Flags::TakesArg) {
+            print!(" argument");
+            align -= 9;
+          }
+          print!(",\t  {:s}\t", " ".repeat(align));
+        }
       }
       match opt.description {
         Some(value) => println(value),
