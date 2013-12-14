@@ -8,16 +8,13 @@
 //         Can only be last or followed by other values.
 use std::hashmap::HashMap;
 use std::result::Result;
-use Flags::OptFlags;
 
 pub mod Flags {
-  pub enum OptFlags {
-    Defaults = 0,
-    AcceptMultiple = 1 << 0,
-    Hidden = 1 << 1,
-    TakesArg = 1 << 2,
-    TakesOptionalArg = 1 << 3
-  }
+  pub static Defaults: uint = 0;
+  pub static AcceptMultiple: uint = 1 << 0;
+  pub static Hidden: uint = 1 << 1;
+  pub static TakesArg: uint = 1 << 2;
+  pub static TakesOptionalArg: uint = 1 << 3;
 }
 
 pub struct Opt {
@@ -25,7 +22,7 @@ pub struct Opt {
   short_name: Option<&'static str>,
   description: Option<&'static str>,
   value: Option<~FromStr>,
-  flags: OptFlags
+  flags: uint
 }
 
 pub struct Cmd {
@@ -56,7 +53,7 @@ impl Opt {
   fn new(long: Option<&'static str>,
          short: Option<&'static str>,
          descr: Option<&'static str>,
-         flags: OptFlags) -> Result<~Opt, &'static str> {
+         flags: uint) -> Result<~Opt, &'static str> {
     if long.is_none() && short.is_none() {
       Err("An option needs either a short or a long name")
     } else {
@@ -65,6 +62,10 @@ impl Opt {
         value: None, flags: flags
       })
     }
+  }
+
+  fn has_flags(&self, flags: uint) -> bool {
+    self.flags & flags == flags
   }
 }
 
@@ -121,7 +122,7 @@ impl OptContext {
                            long: Option<&'static str>,
                            short: Option<&'static str>,
                            descr: Option<&'static str>,
-                           flags: OptFlags) ->
+                           flags: uint) ->
     Result<&'a mut OptContext, &'static str> {
 
     match Opt::new(long, short, descr, flags) {
