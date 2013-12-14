@@ -4,8 +4,7 @@ use cmdparse::*;
 
 #[test]
 fn test_create_option1() {
-
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options with no value:
   ctx.create_option(Some("long"), Some("l"), Some("description"),
                     NoValue, Empty).unwrap();
@@ -19,7 +18,7 @@ fn test_create_option1() {
 
 #[test]
 fn test_create_option2() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options which take values but have no defaults
   ctx.create_option(None, Some("a"), None, Str, Empty).unwrap();
   ctx.create_option(None, Some("b"), None, Int, Empty).unwrap();
@@ -28,7 +27,7 @@ fn test_create_option2() {
 
 #[test]
 fn test_create_option3() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options which take values and have default values.
   ctx.create_option(None, Some("d"), None, Str, StrValue("test")).unwrap();
   ctx.create_option(None, Some("e"), None, Int, IntValue(1)).unwrap();
@@ -37,7 +36,7 @@ fn test_create_option3() {
 
 #[test]
 fn test_create_option4() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are invalid options with no values.
   ctx.create_option(None, Some("g"), None, NoValue, StrValue("test")).unwrap_err();
   ctx.create_option(None, Some("h"), None, NoValue, IntValue(1)).unwrap_err();
@@ -47,7 +46,7 @@ fn test_create_option4() {
 
 #[test]
 fn test_create_option5() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are invalid options with str values.
   ctx.create_option(None, Some("k"), None, Str, Present).unwrap_err();
   ctx.create_option(None, Some("l"), None, Str, IntValue(1)).unwrap_err();
@@ -56,7 +55,7 @@ fn test_create_option5() {
 
 #[test]
 fn test_create_option6() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are invalid options with int values.
   ctx.create_option(None, Some("n"), None, Int, Present).unwrap_err();
   ctx.create_option(None, Some("o"), None, Int, StrValue("test")).unwrap_err();
@@ -65,7 +64,7 @@ fn test_create_option6() {
 
 #[test]
 fn test_create_option7() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are invalid options with bool values.
   ctx.create_option(None, Some("q"), None, Bool, Present).unwrap_err();
   ctx.create_option(None, Some("r"), None, Bool, IntValue(1)).unwrap_err();
@@ -75,13 +74,13 @@ fn test_create_option7() {
 #[test]
 fn test_create_option8() {
   // Can't have an argument with no value.
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   ctx.create_option(None, None, None, NoValue, Empty).unwrap_err();
 }
 
 #[test]
 fn test_parse_valid() {
-  let mut ctx = OptContext::new("test [option] [argument]");
+  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   ctx.create_option(Some("long1"), Some("s"), Some("description"),
                     NoValue, Empty);
   ctx.create_option(Some("long2"), None, Some("description"),
@@ -92,52 +91,5 @@ fn test_parse_valid() {
                     NoValue, Empty);
   ctx.create_option(None, None, None, NoValue, Empty);
 
-  ctx.prepare().unwrap();
 }
 
-#[test]
-fn test_parse_invalid1() {
-  let mut ctx = OptContext::new("test [option] [argument]");
-  ctx.create_option(Some("long1"), Some("s"), Some("description"),
-                    NoValue, Empty);
-  // same short name
-  ctx.create_option(Some("help"), Some("s"), None,
-                    NoValue, Empty);
-
-  ctx.prepare().unwrap_err();
-}
-
-#[test]
-fn test_parse_invalid2() {
-  let mut ctx = OptContext::new("test [option] [argument]");
-  ctx.create_option(Some("long1"), Some("s"), Some("description"),
-                    NoValue, Empty);
-  // same long name
-  ctx.create_option(Some("long1"), Some("t"), None,
-                    NoValue, Empty);
-
-  ctx.prepare().unwrap_err();
-}
-
-#[test]
-fn test_parse_invalid3() {
-  let mut ctx = OptContext::new("test [option] [argument]");
-  ctx.create_option(Some("long1"), Some("s"), Some("description"),
-                    NoValue, Empty);
-  // same names
-  ctx.create_option(Some("long1"), Some("s"), None,
-                    NoValue, Empty);
-
-  ctx.prepare().unwrap_err();
-}
-
-#[test]
-fn test_parse_short_option_no_value() {
-  let args = ~[~"test", ~"-s"];
-  let mut ctx = OptContext::new("test [option] [argument]");
-
-  ctx.create_option(Some("long"), Some("s"), None,
-                    NoValue, Empty).unwrap();
-  ctx.prepare().unwrap();
-//  ctx.parse_args(args).unwrap();
-}

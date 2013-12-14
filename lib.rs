@@ -1,8 +1,13 @@
 #[desc = "Library to parse simple command line arguments"]
 #[license = "MIT"]
 
-use std::result::Result;
+// argument : string passed by the user via the command line
+// command : kind of argument that is unique, doesn't start with '-',
+// option : kind of argument that starts with '-' or '--', has an optional value.
+// value : kind argument that is anonymous and has a value.
+//         Can only be last or followed by other values.
 use std::hashmap::HashMap;
+use std::result::Result;
 
 pub enum OptValue {
   StrValue(&'static str),
@@ -27,11 +32,22 @@ pub struct Opt {
   value: OptValue
 }
 
-pub struct OptContext<'self> {
-  summary: &'static str,
+pub struct Cmd {
+  name: &'static str,
+  description: Option<&'static str>,
   options: ~[~Opt],
-  arguments: ~[~Opt],
-  values: Option<~HashMap<&'static str, &'self ~Opt>>
+  value: OptValue,
+}
+
+pub struct OptContext {
+  // A summary describing the application and/or an exemple.
+  summary: &'static str,
+  // A list of globally valid options.
+  options: ~[~Opt],
+  // A list of valid commands.
+  commands: ~[~Cmd],
+  // The arguments provided by the user.
+  raw_args: ~HashMap<~str, ~RawArg>
 }
 
 impl Opt {
@@ -72,14 +88,59 @@ impl Opt {
   }
 }
 
-impl<'self> OptContext<'self> {
+priv struct RawArg {
+  checked: bool,      // Once a call to check_option has matched a RawArg.
+  option: bool,       // Options start with - or --
+  position: ~[uint],      // Postion in the user provided arg list. Starts at 0.
+                      // The program name is ignored.
+}
 
-  pub fn new(description: &'static str) -> ~OptContext {
-    ~OptContext {
+impl RawArg {
+  pub fn new(pos: uint) -> RawArg {
+    RawArg {
+      checked: false, option: false, position: ~[pos]
+    }
+  }
+}
+
+impl OptContext {
+
+  fn parse(args: ~[~str]) -> ~HashMap<~str, ~RawArg> {
+    let mut map = ~HashMap::new();
+    let mut i = 0;
+
+    for arg in args.move_iter().skip(1) {
+      // Create a new raw arg
+      let mut rarg = ~RawArg::new(i);
+      i += 1;
+      // Check if this first character is '-'
+      let key: ~str =
+        if (arg[0] == '-' as u8) {
+          // this is an option
+          rarg.option = true;
+          if (arg[1] == '-' as u8) {
+            arg.slice_from(2).to_owned()
+          } else {
+            arg.slice_from(1).to_owned()
+          }
+        } else {
+          arg
+        };
+
+      map.insert_or_update_with(key, rarg, |_, varg| {
+        varg.position.push(i);
+      });
+    }
+
+    map
+  }
+
+  pub fn new(description: &'static str, args: ~[~str]) -> OptContext {
+    OptContext {
       summary: description,
-      options: ~[],
-      arguments: ~[],
-      values: None
+      options: ~[],   // Valid options
+      commands: ~[],  // Valid commands
+      raw_args: OptContext::parse(args),
     }
   }
 
@@ -89,7 +150,7 @@ impl<'self> OptContext<'self> {
                            descr: Option<&'static str>,
                            val_type: OptValueType,
                            default_val: OptValue) ->
-    Result<&'a mut OptContext<'self>, &'static str> {
+    Result<&'a mut OptContext, &'static str> {
 
     self.add_option(~Opt { long_name: long,
                            short_name: short,
@@ -99,18 +160,13 @@ impl<'self> OptContext<'self> {
   }
 
   pub fn add_option<'a>(&'a mut self, opt: ~Opt) ->
-    Result<&'a mut OptContext<'self>, &'static str> {
+    Result<&'a mut OptContext, &'static str> {
     match opt.is_valid() {
       Err(msg) => return Err(msg),
       _ => {}
     }
 
-    if !opt.is_named() {
-      self.arguments.push(opt);
-    } else {
-      self.options.push(opt);
-    }
-
+    self.options.push(opt);
     Ok(self)
   }
 
@@ -135,46 +191,4 @@ impl<'self> OptContext<'self> {
     }
   }
 
-  pub fn get_option_value<'a>(&'a self) -> Option<&'a OptValue> {
-    None
-  }
-
-  pub fn prepare(&'self mut self) ->
-    Result<(), &'static str> {
-    if self.values.is_some() {
-      return Err("Cannot call parse_args more than once");
-    }
-
-    // Organize the valid options into a map
-    let mut map: ~HashMap<&'static str, &'self ~Opt> = ~HashMap::new();
-    for opt in self.options.iter() {
-      match opt.short_name {
-        Some(name) => if map.swap(name, opt).is_some() {
-          return Err("Option containing this name already inserted.");
-        },
-        None => {}
-      }
-
-      match opt.long_name {
-        Some(name) => if map.swap(name, opt).is_some() {
-          return Err("Option containing this name already inserted.");
-        },
-        None => {}
-      }
-    }
-
-    self.values = Some(map);
-    Ok(())
-  }
-
-  pub fn parse_args(&mut self, args: ~[~str]) -> Result<(),&'static str> {
-    // Go over all the program args to see if they match the options
-    // Skip the program name
-    for arg in args.iter().skip(1) {
-      println(*arg);
-    }
-
-    Ok(())
-  }
 }
-
