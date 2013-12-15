@@ -25,6 +25,11 @@ pub struct Cmd {
   options: ~[Rc<Opt>]
 }
 
+priv struct Res {
+  time_passed: uint,   // Number of time we've seen this option
+  values: ~[~str],     // Values of the arguments it's been given
+}
+
 priv struct RawArg {
   option: bool,       // Options start with - or --
   value: ~str,
@@ -36,60 +41,23 @@ impl RawArg {
   }
 }
 
-pub struct Res {
-  raw_values: ~[~str],
-  passed: uint,
-}
-
-impl Res {
-  fn new() -> Res {
-    Res {
-      raw_values: ~[], passed: 0,
-    }
-  }
-
-  fn add(&mut self, opt: &Opt, arg: &RawArg) {
-    if !arg.option {
-      return;
-    }
-
-    self.passed += 1;
-    if opt.has_flags(Flags::TakesArg) || opt.has_flags(Flags::TakesOptionalArg) {
-      // TODO deal with the value
-    }
-  }
-
-  pub fn count(&self) -> Result<bool, &'static str> {
-    Err("Unimplemented")
-  }
-
-  pub fn check(&self) -> Result<bool, &'static str> {
-    Err("Unimplemented")
-  }
-
-  pub fn take_values<T: FromStr>(&mut self) -> Result<~[T], &'static str> {
-    Err("Unimplemented")
-  }
-
-  pub fn take_value<T: FromStr>(&mut self) -> Result<T, &'static str> {
-    Err("Unimplemented")
-  }
-}
-
 pub struct Opt {
   long_name: Option<&'static str>,
   short_name: Option<&'static str>,
   description: Option<&'static str>,
   flags: uint,
+  result_idx: uint
 }
 
 impl Opt {
   fn new(long_name: Option<&'static str>,
          short_name: Option<&'static str>,
          descr: Option<&'static str>,
-         flags: uint) -> Opt {
+         flags: uint,
+         res_idx: uint) -> Opt {
 
-    Opt { long_name: long_name, short_name: short_name, description: descr, flags: flags }
+    Opt { long_name: long_name, short_name: short_name, description: descr,
+          flags: flags, result_idx: res_idx }
   }
 
   fn has_flags(&self, flags: uint) -> bool {
@@ -106,8 +74,10 @@ pub struct OptContext {
   commands: ~[~Cmd],
   // The arguments provided by the user.
   raw_args: ~[RawArg],
+  // The results found for each Opt after validation
+  results: ~[Res],
   // Align
-  alignment: uint
+  alignment: uint,
 }
 
 impl OptContext {
@@ -118,6 +88,7 @@ impl OptContext {
       options: HashMap::new(),   // Valid options
       commands: ~[],  // Valid commands
       raw_args: OptContext::prep_args(args),
+      results: ~[],
       alignment: min_align, // Minimum aligment
     }
   }
@@ -149,9 +120,11 @@ impl OptContext {
                     long_name: Option<&'static str>,
                     short_name: Option<&'static str>,
                     description: Option<&'static str>,
-                    flags: uint) -> Result<(), &'static str> {
+                    flags: uint) -> Result<Rc<Opt>, &'static str> {
 
-    let opt = Rc::new(Opt::new(long_name, short_name, description, flags));
+    let opt = Rc::new(Opt::new(long_name, short_name, description, flags,
+                               self.results.len()));
+    self.results.push(Res { time_passed:0, values:~[] });
     match long_name {
       Some(name) => {
         // Update the alignment and check that there is a name.
@@ -170,18 +143,47 @@ impl OptContext {
     match short_name {
       Some(name) => if name.len() > 1 {
         return Err("A short name can have only 1 character");
-      } else if !self.options.insert(name, opt) {
+      } else if !self.options.insert(name, opt.clone()) {
         return Err("An option with the same short name was already added");
       },
       None => {}
     }
-    Ok(())
+
+    Ok(opt)
   }
 
-  fn validate<'a>(&mut self) {
+  pub fn validate<'a>(&mut self) -> Result<(), &'static str> {
+    for arg in self.raw_args.iter() {
+      if arg.option {
+        match self.options.find_equiv(&arg.value) {
+          Some(opt) => {}, None => {}
+        }
+      }
+    }
+
+    Err("Unimplemented")
   }
 
-  pub fn print_help(&self) {
+  pub fn count(&self, opt: Rc<Opt>) -> uint {
+    0
+  }
+
+  pub fn check(&self, opt: Rc<Opt>) -> bool {
+    false
+  }
+
+  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[T], uint> {
+    Right(self.count(opt))
+  }
+
+  pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<T, bool> {
+    Right(self.check(opt))
+  }
+
+  pub fn print_help(&self, msg: Option<&str>) {
+    match msg {
+      Some(err) => println!("Error : {:s}", err), None => {}
+    }
     print("Usage: \n  ");
     println(self.summary);
     println("Valid options :");
