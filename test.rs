@@ -4,35 +4,35 @@ use cmdparse::OptContext;
 use cmdparse::Flags;
 
 #[test]
-fn test_create_option_valid() {
+fn test_add_option_valid() {
   let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options with no value:
-  ctx.create_option(Some("long"), Some("l"), Some("description"), Flags::Defaults).unwrap();
-  ctx.create_option(Some("long2"), None, Some("description"), Flags::Defaults).unwrap();
-  ctx.create_option(Some("long3"), Some("l"), None, Flags::Defaults).unwrap();
-  ctx.create_option(Some("long4"), None, None, Flags::Defaults).unwrap();
-  ctx.create_option(None, Some("r"), Some("description"), Flags::Defaults).unwrap();
-  ctx.create_option(None, Some("a"), None, Flags::Defaults).unwrap();
+  ctx.add_option(Some("long"), Some("a"), Some("description"), Flags::Defaults).unwrap();
+  ctx.add_option(Some("long2"), None, Some("description"), Flags::Defaults).unwrap();
+  ctx.add_option(Some("long3"), Some("b"), None, Flags::Defaults).unwrap();
+  ctx.add_option(Some("long4"), None, None, Flags::Defaults).unwrap();
+  ctx.add_option(None, Some("c"), Some("description"), Flags::Defaults).unwrap();
+  ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
 }
 
 #[test]
-fn test_create_option_print() {
+fn test_add_option_print() {
   let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
-  ctx.create_option(Some("long4"), Some("s"), Some("Description"), Flags::Defaults).unwrap();
-  ctx.create_option(None, Some("t"), Some("Description"), Flags::Defaults).unwrap();
-  ctx.create_option(None, Some("u"), Some("Description"), Flags::TakesOptionalArg).unwrap();
-  ctx.create_option(None, Some("v"), Some("Description"), Flags::TakesArg).unwrap();
-  ctx.create_option(Some("long5"), Some("x"), Some("Description"), Flags::TakesArg).unwrap();
-  ctx.create_option(Some("long6"), None, Some("Description"), Flags::TakesOptionalArg).unwrap();
-  ctx.create_option(Some("long7"), None, None, Flags::Defaults).unwrap();
+  ctx.add_option(Some("long4"), Some("s"), Some("Description"), Flags::Defaults).unwrap();
+  ctx.add_option(None, Some("t"), Some("Description"), Flags::Defaults).unwrap();
+  ctx.add_option(None, Some("u"), Some("Description"), Flags::TakesOptionalArg).unwrap();
+  ctx.add_option(None, Some("v"), Some("Description"), Flags::TakesArg).unwrap();
+  ctx.add_option(Some("long5"), Some("w"), Some("Description"), Flags::TakesArg).unwrap();
+  ctx.add_option(Some("long6"), None, Some("Description"), Flags::TakesOptionalArg).unwrap();
+  ctx.add_option(Some("long7"), None, None, Flags::Defaults).unwrap();
   ctx.print_help();
 }
 
 #[test]
-fn test_create_option_invalid() {
+fn test_add_option_invalid() {
   let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options which take values but have no Flags::Defaults
-  ctx.create_option(None, None, None, Flags::Defaults).unwrap_err();
-  ctx.create_option(None, None, Some("description"), Flags::Defaults).unwrap_err();
+  ctx.add_option(None, None, None, Flags::Defaults).unwrap_err();
+  ctx.add_option(None, None, Some("description"), Flags::Defaults).unwrap_err();
 }
 
