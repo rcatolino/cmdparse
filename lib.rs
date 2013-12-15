@@ -8,6 +8,7 @@
 //         Can only be last or followed by other values.
 use std::hashmap::HashMap;
 use std::result::Result;
+use std::rc::Rc;
 
 static min_align: uint = 11;
 pub mod Flags {
@@ -45,17 +46,16 @@ pub struct OptContext {
   commands: ~[~Cmd],
   // The arguments provided by the user.
   // TODO: remove the box
-  raw_args: ~HashMap<~str, ~RawArg>,
+  raw_args: ~HashMap<~str, RawArg>,
   // Align
   alignment: uint
 
 }
 
 priv struct RawArg {
-  checked: bool,      // Once a call to check_option has matched a RawArg.
   option: bool,       // Options start with - or --
-  position: ~[uint],      // Postion in the user provided arg list. Starts at 0.
                       // The program name is ignored.
+  value: ~str,
 }
 
 impl Res {
@@ -63,6 +63,33 @@ impl Res {
     Res {
       raw_values: ~[], passed: 0,
     }
+  }
+
+  fn add(&mut self, opt: &Opt, arg: &RawArg) {
+    if !arg.option {
+      return;
+    }
+
+    self.passed += arg.position.len();
+    if opt.has_flags(Flags::TakesArg) || opt.has_flags(Flags::TakesOptionalArg) {
+      // TODO deal with the value
+    }
+  }
+
+  pub fn count(&self) -> Result<bool, &'static str> {
+    Err("Unimplemented")
+  }
+
+  pub fn check(&self) -> Result<bool, &'static str> {
+    Err("Unimplemented")
+  }
+
+  pub fn take_values<T: FromStr>(&mut self) -> Result<~[T], &'static str> {
+    Err("Unimplemented")
+  }
+
+  pub fn take_value<T: FromStr>(&mut self) -> Result<T, &'static str> {
+    Err("Unimplemented")
   }
 }
 
@@ -89,7 +116,7 @@ impl Opt {
 impl RawArg {
   pub fn new(pos: uint) -> RawArg {
     RawArg {
-      checked: false, option: false, position: ~[pos]
+      option: false, position: ~[pos], nexts: ~[]
     }
   }
 }
@@ -106,13 +133,13 @@ impl OptContext {
     }
   }
 
-  fn parse(args: ~[~str]) -> ~HashMap<~str, ~RawArg> {
+  fn parse(args: ~[~str]) -> ~HashMap<~str, Rc<RawArg>> {
     let mut map = ~HashMap::new();
     let mut i = 0;
 
     for arg in args.move_iter().skip(1) {
       // Create a new raw arg
-      let mut rarg = ~RawArg::new(i);
+      let mut rarg = RawArg::new(i);
       i += 1;
       // Check if this first character is '-'
       let key =
@@ -128,9 +155,13 @@ impl OptContext {
           arg
         };
 
-      map.insert_or_update_with(key, rarg, |_, varg| {
-        varg.position.push(i);
-      });
+      match map.pop(key) {
+        Some(parg) => {
+          arg.position.push(parg.borrow().position);
+          arg.nexts.push(parg.borrow().nexts);
+        }
+        None => map.insert(key, Rc::new(arg),
+      }
     }
 
     map
@@ -154,21 +185,20 @@ impl OptContext {
       None => {}
     }
 
+    let res = self.check_option(opt);
     self.options.push(opt); // Keep the options to print the help.
-    self.check_option(*self.options.last())
+    res
   }
 
-  fn check_option<'a>(&self, opt: &Opt) -> ~Res {
+  fn check_option<'a>(&mut self, opt: &Opt) -> ~Res {
     // Unpack the name(s) of the option and find the corresponding raw args.
-    OptContext::get_result(opt,
-                           opt.short_name.and_then(|name| self.raw_args.find_equiv(&name)),
-                           opt.long_name.and_then(|name| self.raw_args.find_equiv(&name)))
-  }
-
-  fn get_result(opt: &Opt, arg1: Option<&~RawArg>, arg2: Option<&~RawArg>) -> ~Res {
     let mut res = ~Res::new();
-    arg1.and_then(|arg| res.add(arg));
-    arg1.and_then(|arg| res.add(arg));
+    opt.short_name.and_then(|name| {
+      self.raw_args.find_mut_equiv(&name).map(|arg| res.add(opt, arg.borrow()))
+    });
+    opt.long_name.and_then(|name| {
+      self.raw_args.find_mut_equiv(&name).map(|arg| res.add(opt, arg.borrow()))
+    });
     res
   }
 
