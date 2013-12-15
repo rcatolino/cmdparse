@@ -12,7 +12,7 @@ use std::result::Result;
 static min_align: uint = 11;
 pub mod Flags {
   pub static Defaults: uint = 0;
-  pub static AcceptMultiple: uint = 1 << 0;
+  pub static RejectMultiple: uint = 1 << 0;
   pub static Hidden: uint = 1 << 1;
   pub static TakesArg: uint = 1 << 2;
   pub static TakesOptionalArg: uint = 1 << 3;
@@ -22,8 +22,12 @@ pub struct Opt {
   long_name: Option<&'static str>,
   short_name: Option<&'static str>,
   description: Option<&'static str>,
-  value: Option<~FromStr>,
-  flags: uint
+  flags: uint,
+}
+
+pub struct Res {
+  raw_values: ~[~str],
+  passed: uint,
 }
 
 pub struct Cmd {
@@ -40,6 +44,7 @@ pub struct OptContext {
   // A list of valid commands.
   commands: ~[~Cmd],
   // The arguments provided by the user.
+  // TODO: remove the box
   raw_args: ~HashMap<~str, ~RawArg>,
   // Align
   alignment: uint
@@ -53,6 +58,14 @@ priv struct RawArg {
                       // The program name is ignored.
 }
 
+impl Res {
+  fn new() -> Res {
+    Res {
+      raw_values: ~[], passed: 0,
+    }
+  }
+}
+
 impl Opt {
   fn new(long: Option<&'static str>,
          short: Option<&'static str>,
@@ -63,7 +76,7 @@ impl Opt {
     } else {
       Ok(~Opt {
         long_name: long, short_name: short, description: descr,
-        value: None, flags: flags
+        flags: flags,
       })
     }
   }
@@ -83,6 +96,16 @@ impl RawArg {
 
 impl OptContext {
 
+  pub fn new(description: &'static str, args: ~[~str]) -> OptContext {
+    OptContext {
+      summary: description,
+      options: ~[],   // Valid options
+      commands: ~[],  // Valid commands
+      raw_args: OptContext::parse(args),
+      alignment: min_align, // Minimum aligment
+    }
+  }
+
   fn parse(args: ~[~str]) -> ~HashMap<~str, ~RawArg> {
     let mut map = ~HashMap::new();
     let mut i = 0;
@@ -92,7 +115,7 @@ impl OptContext {
       let mut rarg = ~RawArg::new(i);
       i += 1;
       // Check if this first character is '-'
-      let key: ~str =
+      let key =
         if (arg[0] == '-' as u8) {
           // this is an option
           rarg.option = true;
@@ -113,22 +136,11 @@ impl OptContext {
     map
   }
 
-  pub fn new(description: &'static str, args: ~[~str]) -> OptContext {
-    OptContext {
-      summary: description,
-      options: ~[],   // Valid options
-      commands: ~[],  // Valid commands
-      raw_args: OptContext::parse(args),
-      alignment: min_align, // Minimum aligment
-    }
-  }
-
   pub fn create_option<'a>(&'a mut self,
                            long: Option<&'static str>,
                            short: Option<&'static str>,
                            descr: Option<&'static str>,
-                           flags: uint) ->
-    Result<&'a mut OptContext, &'static str> {
+                           flags: uint) -> Result<~Res, &'static str> {
 
     match Opt::new(long, short, descr, flags) {
       Ok(opt) => Ok(self.add_option(opt)),
@@ -136,13 +148,28 @@ impl OptContext {
     }
   }
 
-  pub fn add_option<'a>(&'a mut self, opt: ~Opt) -> &'a mut OptContext {
+  pub fn add_option(&mut self, opt: ~Opt) -> ~Res {
     match opt.long_name {
       Some(name) => self.alignment = std::cmp::max(self.alignment, name.len() + min_align),
       None => {}
     }
-    self.options.push(opt);
-    self
+
+    self.options.push(opt); // Keep the options to print the help.
+    self.check_option(*self.options.last())
+  }
+
+  fn check_option<'a>(&self, opt: &Opt) -> ~Res {
+    // Unpack the name(s) of the option and find the corresponding raw args.
+    OptContext::get_result(opt,
+                           opt.short_name.and_then(|name| self.raw_args.find_equiv(&name)),
+                           opt.long_name.and_then(|name| self.raw_args.find_equiv(&name)))
+  }
+
+  fn get_result(opt: &Opt, arg1: Option<&~RawArg>, arg2: Option<&~RawArg>) -> ~Res {
+    let mut res = ~Res::new();
+    arg1.and_then(|arg| res.add(arg));
+    arg1.and_then(|arg| res.add(arg));
+    res
   }
 
   pub fn print_help(&self) {
@@ -155,7 +182,7 @@ impl OptContext {
       }
       print("  ");
       match opt.short_name {
-        Some(value) => print!("-{:s}", value),
+        Some(name) => print!("-{:s}", name),
         None => print("  ")
       }
       match opt.long_name {
