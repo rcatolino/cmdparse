@@ -315,21 +315,34 @@ impl Context {
   }
 
   fn print_opt(&self, opt: &Opt) -> bool {
+    // Not using tabs cause they mess with the alignment
     if opt.has_flag(Flags::Hidden) {
       return true;
     }
     print("  ");
+    // Print until the long option
+    let mut align = self.alignment;
     match opt.short_name {
-      Some(name) => print!("-{:s}", name),
-      None => print("  ")
+      Some(name) => {
+        print!("-{:s}", name);
+        if opt.long_name.is_none() {
+          if opt.has_flag(Flags::TakesOptionalArg) {
+            print!(" [argument]");
+            align -= 11;
+          } else if opt.has_flag(Flags::TakesArg) {
+            print!(" argument");
+            align -= 9;
+          }
+        }
+        print(",     ");
+      }
+      None => print("        ")
     }
+    // Print until the description
     match opt.long_name {
       Some(value) => {
-        let mut align = self.alignment - value.len();
-        if opt.short_name.is_some() {
-          print(",");
-        }
-        print!("\t--{:s}", value);
+        align -= value.len()+2;
+        print!("--{:s}", value);
         if opt.has_flag(Flags::TakesOptionalArg) {
           print!("[=argument]");
           align -= 11;
@@ -337,23 +350,14 @@ impl Context {
           print!("=argument");
           align -= 9;
         }
-        print!("{:s}\t", " ".repeat(align));
       }
-      None => {
-        let mut align = self.alignment;
-        if opt.has_flag(Flags::TakesOptionalArg) {
-          print!(" [argument]");
-          align -= 11;
-        } else if opt.has_flag(Flags::TakesArg) {
-          print!(" argument");
-          align -= 9;
-        }
-        print!(",\t  {:s}\t", " ".repeat(align));
-      }
+      None => {}
     }
+    print!("{:s}  ", " ".repeat(align));
+    // Print until the end
     match opt.description {
       Some(value) => println(value),
-      None => println("")
+      None => print("\n")
     }
     true
   }
