@@ -13,7 +13,7 @@ use std::rc::Rc;
 static min_align: uint = 11;
 pub mod Flags {
   pub static Defaults: uint = 0;
-  pub static RejectMultiple: uint = 1 << 0;
+  pub static Unique: uint = 1 << 0;
   pub static Hidden: uint = 1 << 1;
   pub static TakesArg: uint = 1 << 2;
   pub static TakesOptionalArg: uint = 1 << 3;
@@ -153,7 +153,7 @@ impl OptContext {
   }
 
   fn check_next_value(&self) -> bool {
-    self.raw_args.head_opt().map_default(false, |narg| if narg.option {
+    self.raw_args.head_opt().map_default(false, |narg| if !narg.option {
       true
     } else {
       false
@@ -175,7 +175,7 @@ impl OptContext {
           let idx = opt.borrow().result_idx;
           self.results[idx].passed += 1;
           let res = &self.results[idx];
-          if res.passed > 1 && opt.borrow().has_flag(Flags::RejectMultiple) {
+          if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
             return Err(format!("The option : {:s} was given more than once",
                                arg.value));
           } else if opt.borrow().has_flag(Flags::TakesArg) {
@@ -209,17 +209,25 @@ impl OptContext {
   }
 
   pub fn check(&self, opt: Rc<Opt>) -> bool {
-    match self.count(opt) {
-      0 => false, _ => true
-    }
+    self.count(opt) != 0
   }
 
   pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[T], uint> {
     Right(self.count(opt))
   }
 
-  pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<T, bool> {
-    Right(self.check(opt))
+  pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
+    match self.results.get_opt(opt.borrow().result_idx) {
+      Some(res) => match res.values.head_opt() {
+        Some(value) => Left(from_str(*value)),
+        None => if res.passed == 0 {
+          Right(false)
+        } else {
+          Right(true)
+        }
+      },
+      None => Right(false),
+    }
   }
 
   pub fn print_help(&self, msg: Option<&str>) {
