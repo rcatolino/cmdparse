@@ -99,6 +99,70 @@ fn test_check_result_no_value_no_flags_valid() {
 }
 
 #[test]
+fn test_check_result_no_value_no_flags_grouped() {
+  let args = ~[~"test", ~"-deg", ~"--long1"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
+  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some("g"), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(ctx.check(d_opt) == true);
+  assert!(ctx.check(e_opt) == true);
+  assert!(ctx.check(f_opt) == false);
+  assert!(ctx.check(g_opt) == true);
+  assert!(ctx.check(h_opt) == true);
+  assert!(ctx.check(i_opt) == false);
+}
+
+#[test]
+fn test_check_result_grouped_value_valid() {
+  let args = ~[~"test", ~"-deg", ~"value", ~"--long1"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
+  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some("g"), None, Flags::TakesArg).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(ctx.check(d_opt) == true);
+  assert!(ctx.check(e_opt) == true);
+  assert!(ctx.check(f_opt) == false);
+  assert!(ctx.check(h_opt) == true);
+  assert!(ctx.check(i_opt) == false);
+  match ctx.take_value::<~str>(g_opt) {
+    Left(Some(val)) => assert!(val == ~"value"),
+    Left(None) => assert!(false),
+    Right(_) => assert!(false),
+  }
+}
+
+#[test]
+fn test_check_result_grouped_value_invalid() {
+  let args = ~[~"test", ~"-deg", ~"--long1"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::TakesOptionalArg).unwrap();
+  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some("g"), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(ctx.check(d_opt) == true);
+  assert!(ctx.check(g_opt) == true);
+  assert!(ctx.check(f_opt) == false);
+  assert!(ctx.check(h_opt) == true);
+  assert!(ctx.check(i_opt) == false);
+  match ctx.take_value::<~str>(e_opt) {
+    Left(_) => assert!(false),
+    Right(val) => assert!(val),
+  }
+}
+
+#[test]
 fn test_check_result_single_value_valid_int() {
   let args = ~[~"test", ~"-i", ~"33"];
   let mut ctx = Context::new("test [option] [argument]", args);
@@ -271,6 +335,8 @@ fn test_check_result_no_value_unique2() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
     Ok(()) => assert!(false)
   }
+  println("5");
   ctx.count(d_opt);
+  println("6");
   ctx.count(l3_opt);
 }

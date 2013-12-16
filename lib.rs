@@ -77,7 +77,7 @@ use std::hashmap::HashMap;
 use std::result::Result;
 use std::rc::Rc;
 
-static min_align: uint = 11;
+static min_align: uint = 15;
 pub mod Flags {
   pub static Defaults: uint = 0;
   pub static Unique: uint = 1 << 0;
@@ -166,19 +166,20 @@ impl Context {
     // skip the program name
     for arg in args.move_iter().skip(1) {
       // Check if this first character is '-'
-      let (name, option) =
-        if (arg[0] == '-' as u8) {
-          // this is an option
-          (if (arg[1] == '-' as u8) {
-            arg.slice_from(2).to_owned()
-          } else {
-            arg.slice_from(1).to_owned()
-          },
-          true)
+      if (arg[0] == '-' as u8) {
+        // this is an option
+        if (arg[1] == '-' as u8) {
+          // Long option
+          vect.push(RawArg::new(arg.slice_from(2).to_owned(), true));
         } else {
-          (arg, false)
-        };
-      vect.push(RawArg::new(name, option));
+          // Short option(s)
+          for c in arg.chars().skip(1) {
+            vect.push(RawArg::new(c.to_str(), true));
+          }
+        }
+      } else {
+        vect.push(RawArg::new(arg, false));
+      }
     }
     vect
   }
