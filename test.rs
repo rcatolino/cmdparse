@@ -20,7 +20,7 @@ fn test_check_result() {
   let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
   let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
   let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  ctx.validate().map_err(|msg| ctx.print_help(Some(msg)));
+  ctx.validate().map_err(|msg| ctx.print_help(Some(msg.as_slice())));
   ctx.check(d_opt);
   let d_val: int = match ctx.take_value(e_opt) {
     Left(value) => value,

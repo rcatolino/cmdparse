@@ -26,7 +26,7 @@ pub struct Cmd {
 }
 
 priv struct Res {
-  time_passed: uint,   // Number of time we've seen this option
+  passed: uint,   // Number of time we've seen this option
   values: ~[~str],     // Values of the arguments it's been given
 }
 
@@ -60,8 +60,8 @@ impl Opt {
           flags: flags, result_idx: res_idx }
   }
 
-  fn has_flags(&self, flags: uint) -> bool {
-    self.flags & flags == flags
+  fn has_flag(&self, flags: uint) -> bool {
+    self.flags & flags != 0
   }
 }
 
@@ -124,7 +124,7 @@ impl OptContext {
 
     let opt = Rc::new(Opt::new(long_name, short_name, description, flags,
                                self.results.len()));
-    self.results.push(Res { time_passed:0, values:~[] });
+    self.results.push(Res { passed:0, values:~[] });
     match long_name {
       Some(name) => {
         // Update the alignment and check that there is a name.
@@ -152,16 +152,51 @@ impl OptContext {
     Ok(opt)
   }
 
-  pub fn validate<'a>(&mut self) -> Result<(), &'static str> {
-    for arg in self.raw_args.iter() {
-      if arg.option {
-        match self.options.find_equiv(&arg.value) {
-          Some(opt) => {}, None => {}
-        }
+  fn check_next_value(&self) -> bool {
+    self.raw_args.head_opt().map_default(false, |narg| if narg.option {
+      true
+    } else {
+      false
+    })
+  }
+
+  pub fn validate(&mut self) -> Result<(), ~str> {
+    // Peekable iterator not really usable here since it prevents
+    // from mutating the rest of the elements while borrowed.
+    let mut oarg = self.raw_args.shift_opt();
+    while oarg.is_some() {
+      let arg = oarg.unwrap(); // Can't fail since it's some.
+      if !arg.option {
+        return Err(format!("Error, invalid option {:s}", arg.value));
       }
+
+      match self.options.find_equiv(&arg.value) {
+        Some(opt) => {
+          let mut res = self.results.remove(opt.borrow().result_idx);
+          res.passed += 1;
+          if res.passed > 1 && opt.borrow().has_flag(Flags::RejectMultiple) {
+            return Err(format!("Error, the option {:s} was given more than once",
+                               arg.value));
+          } else if opt.borrow().has_flag(Flags::TakesArg) {
+              if self.check_next_value() {
+                // check_next_value ensure that shift can't fail
+                res.values.push(self.raw_args.shift().value);
+              } else {
+                return Err(format!("Error, missing argument for option {:s}",
+                                   arg.value));
+              }
+          } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
+                    && self.check_next_value() {
+              res.values.push(self.raw_args.shift().value);
+          }
+        },
+        None => {}
+      }
+
+      oarg = self.raw_args.shift_opt();
     }
 
-    Err("Unimplemented")
+    Ok(())
   }
 
   pub fn count(&self, opt: Rc<Opt>) -> uint {
@@ -191,7 +226,7 @@ impl OptContext {
   }
 
   fn print_opt(&self, opt: &Opt) -> bool {
-    if opt.has_flags(Flags::Hidden) {
+    if opt.has_flag(Flags::Hidden) {
       return true;
     }
     print("  ");
@@ -206,10 +241,10 @@ impl OptContext {
           print(",");
         }
         print!("\t--{:s}", value);
-        if opt.has_flags(Flags::TakesOptionalArg) {
+        if opt.has_flag(Flags::TakesOptionalArg) {
           print!("[=argument]");
           align -= 11;
-        } else if opt.has_flags(Flags::TakesArg) {
+        } else if opt.has_flag(Flags::TakesArg) {
           print!("=argument");
           align -= 9;
         }
@@ -217,10 +252,10 @@ impl OptContext {
       }
       None => {
         let mut align = self.alignment;
-        if opt.has_flags(Flags::TakesOptionalArg) {
+        if opt.has_flag(Flags::TakesOptionalArg) {
           print!(" [argument]");
           align -= 11;
-        } else if opt.has_flags(Flags::TakesArg) {
+        } else if opt.has_flag(Flags::TakesArg) {
           print!(" argument");
           align -= 9;
         }
