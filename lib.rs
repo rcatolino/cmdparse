@@ -1,11 +1,78 @@
 #[desc = "Library to parse simple command line arguments"];
 #[license = "MIT"];
+#[link(name="cmdparse")];
+
+/*!
+  Command line option parsing
+
+  # Features
+  - Definition of option with short and/or long names.
+  - Options taking optional or mandatory arguments.
+  - Automatic help message generation.
+
+  # To do
+  - Commands taking their own options
+  - Anonymous arguments
+
+  # Example, to parse the options :
+  "-h/--help, -l, --option, -a [optional_argument(int)], -m <mandatory_argument(str)>"
+
+  ```rust
+  // First create the context with the program summary and the input arguments :
+  let mut ctx = Context::new("example [options]", os::args());
+
+  // Then add the authorized options.
+  let help_opt = ctx.add_option(Some("help"), Some("h"), Some("Display this help"),
+                                Flags::Defaults).unwrap();
+  let o_opt = ctx.add_option(None, Some("l"), Some("Activate the option l"),
+                             Flags::Defaults).unwrap();
+  let l_opt = ctx.add_option(Some("option"), None, Some("Activate some option"),
+                             Flags::Defaults).unwrap();
+  let a_opt = ctx.add_option(None, Some("a"), Some("Activate the option a"),
+                             Flags::TakesOptionalArg).unwrap();
+  let m_opt = ctx.add_option(None, Some("m"), Some("Activate the option m"),
+                             Flags::TakesArg).unwrap();
+  // add_option() can only return None if the option was specified in
+  // a way that makes no sense, eg no long name and no short name.
+  // You probably want to fail in this case, hence the unwrap().
+
+  // Validate the input arguments against the valid options
+  match ctx.validate() {
+    Err(msg) => {
+      // The input options didn't match the authorized ones. Display help.
+      ctx.print_help(Some(msg.as_slice()));
+      return;
+    }
+    Ok(()) => {}
+  }
+
+  // Do stuff with the results
+  if ctx.check(help_opt) {
+    ctx.print_help(None);
+    return;
+  }
+
+  let a_value = match ctx.take_value(a_opt) {
+    Left(Some(some_int)) => println!("a : {:d}", some_int),
+    Left(None) => println("a : the argument should be an int!!!"),
+    Right(passed) => if passed {
+      println("the option 'a' was passed without an argument.");
+    } else {
+      println("the option 'a' was not passed.");
+    }
+  };
+
+  // etc.
+  ```
+
+*/
 
 // argument : string passed by the user via the command line
 // command : kind of argument that is unique, doesn't start with '-',
 // option : kind of argument that starts with '-' or '--', has an optional value.
 // value : kind argument that is anonymous and has a value.
 //         Can only be last or followed by other values.
+
 use std::hashmap::HashMap;
 use std::result::Result;
 use std::rc::Rc;
@@ -65,7 +132,7 @@ impl Opt {
   }
 }
 
-pub struct OptContext {
+pub struct Context {
   // A summary describing the application and/or an exemple.
   summary: &'static str,
   // A map of globally valid options.
@@ -80,14 +147,14 @@ pub struct OptContext {
   alignment: uint,
 }
 
-impl OptContext {
+impl Context {
 
-  pub fn new(description: &'static str, args: ~[~str]) -> OptContext {
-    OptContext {
+  pub fn new(description: &'static str, args: ~[~str]) -> Context {
+    Context {
       summary: description,
       options: HashMap::new(),   // Valid options
       commands: ~[],  // Valid commands
-      raw_args: OptContext::prep_args(args),
+      raw_args: Context::prep_args(args),
       results: ~[],
       alignment: min_align, // Minimum aligment
     }
