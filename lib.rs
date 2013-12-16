@@ -61,7 +61,7 @@ impl Opt {
   }
 
   fn has_flag(&self, flags: uint) -> bool {
-    self.flags & flags != 0
+    (self.flags & flags) != 0
   }
 }
 
@@ -167,21 +167,22 @@ impl OptContext {
     while oarg.is_some() {
       let arg = oarg.unwrap(); // Can't fail since it's some.
       if !arg.option {
-        return Err(format!("Error, invalid option {:s}", arg.value));
+        return Err(format!("Invalid option : {:s}", arg.value));
       }
 
       match self.options.find_equiv(&arg.value) {
         Some(opt) => {
           let idx = opt.borrow().result_idx;
+          self.results[idx].passed += 1;
           let res = &self.results[idx];
-          if res.passed != 0 && opt.borrow().has_flag(Flags::RejectMultiple) {
-            return Err(format!("Error, the option {:s} was given more than once",
+          if res.passed > 1 && opt.borrow().has_flag(Flags::RejectMultiple) {
+            return Err(format!("The option : {:s} was given more than once",
                                arg.value));
           } else if opt.borrow().has_flag(Flags::TakesArg) {
               if self.check_next_value() {
                 Some((self.raw_args.shift().value, idx))
               } else {
-                return Err(format!("Error, missing argument for option {:s}",
+                return Err(format!("Missing argument for option : {:s}",
                                    arg.value));
               }
           } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
@@ -191,7 +192,7 @@ impl OptContext {
             None
           }
         },
-        None => None
+        None => return Err(format!("Invalid option : {:s}", arg.value)),
       }.map(|(value, idx)| self.results[idx].values.push(value));
 
       oarg = self.raw_args.shift_opt();
@@ -201,11 +202,16 @@ impl OptContext {
   }
 
   pub fn count(&self, opt: Rc<Opt>) -> uint {
-    0
+    match self.results.get_opt(opt.borrow().result_idx) {
+      Some(res) => res.passed,
+      None => 0
+    }
   }
 
   pub fn check(&self, opt: Rc<Opt>) -> bool {
-    false
+    match self.count(opt) {
+      0 => false, _ => true
+    }
   }
 
   pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[T], uint> {

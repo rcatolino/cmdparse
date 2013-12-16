@@ -16,17 +16,41 @@ fn test_add_option_valid() {
 }
 
 #[test]
-fn test_check_result() {
-  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
+fn test_check_result_no_value_no_flags_valid() {
+  let args = ~[~"test", ~"-d"];
+  let mut ctx = OptContext::new("test [option] [argument]", args);
   let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
   let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  ctx.validate().map_err(|msg| ctx.print_help(Some(msg.as_slice())));
-  ctx.check(d_opt);
-  let d_val: int = match ctx.take_value(e_opt) {
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(ctx.check(d_opt) == true);
+  assert!(ctx.check(e_opt) == false);
+}
+
+#[test]
+fn test_check_result_no_value_no_flags_invalid() {
+  let args = ~[~"test", ~"-i"];
+  let mut ctx = OptContext::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
+  match ctx.validate() {
+    Err(msg) => ctx.print_help(Some(msg.as_slice())),
+    Ok(()) => assert!(false),
+  }
+  assert!(ctx.check(d_opt) == false);
+  assert!(ctx.check(e_opt) == false);
+}
+
+#[test]
+fn test_check_result_single_value_no_flags() {
+  let args = ~[~"test", ~"-f", ~"value"];
+  let mut ctx = OptContext::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
+  //ctx.validate().map_err(|msg| ctx.print_help(Some(msg.as_slice())));
+  let e_val: int = match ctx.take_value(e_opt) {
     Left(value) => value,
     Right(_) => 0
   };
-  println(d_val.to_str());
+  println(e_val.to_str());
 }
 
 #[test]
@@ -44,18 +68,5 @@ fn test_add_option_invalid() {
   // Those are valid options which take values but have no Flags::Defaults
   ctx.add_option(None, None, None, Flags::Defaults).unwrap_err();
   ctx.add_option(None, None, Some("description"), Flags::Defaults).unwrap_err();
-}
-
-#[test]
-fn test_add_option_print() {
-  let mut ctx = OptContext::new("test [option] [argument]", ~[~"test"]);
-  ctx.add_option(Some("long4"), Some("s"), Some("Description"), Flags::Defaults).unwrap();
-  ctx.add_option(None, Some("t"), Some("Description"), Flags::Defaults).unwrap();
-  ctx.add_option(None, Some("u"), Some("Description"), Flags::TakesOptionalArg).unwrap();
-  ctx.add_option(None, Some("v"), Some("Description"), Flags::TakesArg).unwrap();
-  ctx.add_option(Some("long5"), Some("w"), Some("Description"), Flags::TakesArg).unwrap();
-  ctx.add_option(Some("long6"), None, Some("Description"), Flags::TakesOptionalArg).unwrap();
-  ctx.add_option(Some("long7"), None, None, Flags::Defaults).unwrap();
-  ctx.print_help(None);
 }
 
