@@ -167,7 +167,7 @@ impl OptContext {
     while oarg.is_some() {
       let arg = oarg.unwrap(); // Can't fail since it's some.
       if !arg.option {
-        return Err(format!("Invalid option : {:s}", arg.value));
+        return Err(format!("Unexpected argument : {:s}", arg.value));
       }
 
       match self.options.find_equiv(&arg.value) {
@@ -223,13 +223,20 @@ impl OptContext {
   }
 
   pub fn print_help(&self, msg: Option<&str>) {
+    let mut printed: ~[bool] = ~[];
+    printed.grow_fn(self.results.len(), |_| false);
     match msg {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
     print("Usage: \n  ");
     println(self.summary);
     println("Valid options :");
-    self.options.each_value(|opt| self.print_opt(opt.borrow()));
+    self.options.each_value(|opt| if !printed[opt.borrow().result_idx] {
+      printed[opt.borrow().result_idx] = true;
+      self.print_opt(opt.borrow())
+    } else {
+      true
+    });
   }
 
   fn print_opt(&self, opt: &Opt) -> bool {
@@ -275,5 +282,4 @@ impl OptContext {
     }
     true
   }
-
 }
