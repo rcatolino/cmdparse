@@ -172,26 +172,27 @@ impl OptContext {
 
       match self.options.find_equiv(&arg.value) {
         Some(opt) => {
-          let mut res = self.results.remove(opt.borrow().result_idx);
-          res.passed += 1;
-          if res.passed > 1 && opt.borrow().has_flag(Flags::RejectMultiple) {
+          let idx = opt.borrow().result_idx;
+          let res = &self.results[idx];
+          if res.passed != 0 && opt.borrow().has_flag(Flags::RejectMultiple) {
             return Err(format!("Error, the option {:s} was given more than once",
                                arg.value));
           } else if opt.borrow().has_flag(Flags::TakesArg) {
               if self.check_next_value() {
-                // check_next_value ensure that shift can't fail
-                res.values.push(self.raw_args.shift().value);
+                Some((self.raw_args.shift().value, idx))
               } else {
                 return Err(format!("Error, missing argument for option {:s}",
                                    arg.value));
               }
           } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
                     && self.check_next_value() {
-              res.values.push(self.raw_args.shift().value);
+              Some((self.raw_args.shift().value, idx))
+          } else {
+            None
           }
         },
-        None => {}
-      }
+        None => None
+      }.map(|(value, idx)| self.results[idx].values.push(value));
 
       oarg = self.raw_args.shift_opt();
     }
