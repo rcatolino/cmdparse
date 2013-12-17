@@ -3,6 +3,8 @@ extern mod cmdparse;
 use cmdparse::Context;
 use cmdparse::Flags;
 
+use std::str;
+
 // Tests for the options creation
 #[test]
 fn test_add_option_valid() {
@@ -56,18 +58,6 @@ fn test_check_validation_invalid2() {
     Ok(()) => assert!(false),
   }
   assert!(ctx.check(d_opt) == false);
-}
-
-#[test]
-fn test_check_validation_invalid3() {
-  let args = ~[~"test", ~"--long1", ~"invalidarg"];
-  let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::Defaults).unwrap();
-  match ctx.validate() {
-    Err(msg) => ctx.print_help(Some(msg.as_slice())),
-    Ok(()) => assert!(false),
-  }
-  ctx.check(d_opt);
 }
 
 #[test]
@@ -381,6 +371,40 @@ fn test_check_result_multiple_values_unpassed() {
   match ctx.take_values::<int>(e_opt) {
     Left(_) => assert!(false),
     Right(nb) => assert!(nb == 2)
+  }
+}
+
+// Tests for the anonymous arguments
+
+#[test]
+fn test_check_validation_valid_argument1() {
+  let args = ~[~"test", ~"--long1", ~"validarg1", ~"validarg2"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::Defaults).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  for (arg, expected) in ctx.get_args().iter().
+    zip((~["validarg1", "validarg2"]).move_iter()) {
+    assert!(str::eq_slice(*arg, expected));
+  }
+  assert!(ctx.check(d_opt));
+}
+
+#[test]
+fn test_check_validation_valid_argument2() {
+  let args = ~[~"test", ~"--long1", ~"validarg1", ~"validarg2"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  for (arg, expected) in ctx.get_args().iter().
+    zip((~["validarg2"]).move_iter()) {
+    assert!(str::eq_slice(*arg, expected));
+  }
+  match ctx.take_value::<~str>(d_opt) {
+    Left(val) => match val {
+      Some(val) => assert!(str::eq_slice(val, "validarg1")),
+      None => assert!(false)
+    },
+    Right(_) => assert!(false),
   }
 }
 

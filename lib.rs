@@ -136,6 +136,7 @@ impl Opt {
 pub struct Context {
   // A summary describing the application and/or an exemple.
   summary: &'static str,
+  alignment: uint,
   // A map of globally valid options.
   options: HashMap<&'static str, Rc<Opt>>,
   // A list of valid commands.
@@ -144,8 +145,8 @@ pub struct Context {
   raw_args: ~[RawArg],
   // The results found for each Opt after validation
   results: ~[Res],
-  // Align
-  alignment: uint,
+  // The arguments left after validation
+  residual_args: ~[~str],
 }
 
 impl Context {
@@ -153,11 +154,12 @@ impl Context {
   pub fn new(description: &'static str, args: ~[~str]) -> Context {
     Context {
       summary: description,
-      options: HashMap::new(),   // Valid options
-      commands: ~[],  // Valid commands
+      alignment: min_align,
+      options: HashMap::new(),
+      commands: ~[],
       raw_args: Context::prep_args(args),
       results: ~[],
-      alignment: min_align, // Minimum aligment
+      residual_args: ~[],
     }
   }
 
@@ -236,38 +238,46 @@ impl Context {
     while oarg.is_some() {
       let arg = oarg.unwrap(); // Can't fail since it's some.
       if !arg.option {
-        return Err(format!("Unexpected argument : {:s}", arg.value));
-      }
-
-      match self.options.find_equiv(&arg.value) {
-        Some(opt) => {
-          let idx = opt.borrow().result_idx;
-          self.results[idx].passed += 1;
-          let res = &self.results[idx];
-          if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
-            return Err(format!("The option : {:s} was given more than once",
-                               arg.value));
-          } else if opt.borrow().has_flag(Flags::TakesArg) {
-              if self.check_next_value() {
+        self.residual_args.push(arg.value);
+      } else {
+        match self.options.find_equiv(&arg.value) {
+          Some(opt) => {
+            if self.residual_args.len() != 0 {
+              return Err(format!("Unexpected argument : {:s}.",
+                                 self.residual_args.shift()));
+            }
+            let idx = opt.borrow().result_idx;
+            self.results[idx].passed += 1;
+            let res = &self.results[idx];
+            if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
+              return Err(format!("The option : {:s} was given more than once",
+                                 arg.value));
+            } else if opt.borrow().has_flag(Flags::TakesArg) {
+                if self.check_next_value() {
+                  Some((self.raw_args.shift().value, idx))
+                } else {
+                  return Err(format!("Missing argument for option : {:s}",
+                                     arg.value));
+                }
+            } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
+                      && self.check_next_value() {
                 Some((self.raw_args.shift().value, idx))
-              } else {
-                return Err(format!("Missing argument for option : {:s}",
-                                   arg.value));
-              }
-          } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
-                    && self.check_next_value() {
-              Some((self.raw_args.shift().value, idx))
-          } else {
-            None
-          }
-        },
-        None => return Err(format!("Invalid option : {:s}", arg.value)),
-      }.map(|(value, idx)| self.results[idx].values.push(value));
+            } else {
+              None
+            }
+          },
+          None => return Err(format!("Invalid option : {:s}", arg.value)),
+        }.map(|(value, idx)| self.results[idx].values.push(value));
+      }
 
       oarg = self.raw_args.shift_opt();
     }
 
     Ok(())
+  }
+
+  pub fn get_args<'a>(&'a self) -> &'a[~str] {
+    self.residual_args.as_slice()
   }
 
   pub fn count(&self, opt: Rc<Opt>) -> uint {
