@@ -8,6 +8,7 @@
   # Features
   - Definition of option with short and/or long names.
   - Options taking optional or mandatory arguments.
+  - Grouping of short options
   - Automatic help message generation.
 
   # To do
@@ -165,17 +166,17 @@ impl Context {
 
     // skip the program name
     for arg in args.move_iter().skip(1) {
-      // Check if this first character is '-'
-      if (arg[0] == '-' as u8) {
-        // this is an option
-        if (arg[1] == '-' as u8) {
-          // Long option
-          vect.push(RawArg::new(arg.slice_from(2).to_owned(), true));
-        } else {
-          // Short option(s)
-          for c in arg.chars().skip(1) {
-            vect.push(RawArg::new(c.to_str(), true));
-          }
+      if arg.starts_with("--") {
+        // Long option
+        let mut cit = arg.slice_from(2).splitn('=', 1);
+        cit.next().and_then(|ovalue| {
+          vect.push(RawArg::new(ovalue.to_owned(), true));
+          cit.next()
+        }).map(|ovalue| vect.push(RawArg::new(ovalue.to_owned(), false)));
+      } else if arg.starts_with("-") {
+        // Short option(s)
+        for c in arg.chars().skip(1) {
+          vect.push(RawArg::new(c.to_str(), true));
         }
       } else {
         vect.push(RawArg::new(arg, false));

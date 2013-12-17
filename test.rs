@@ -163,6 +163,27 @@ fn test_check_result_grouped_value_invalid() {
 }
 
 #[test]
+fn test_check_result_long_option_values() {
+  let args = ~[~"test", ~"--long1=value1", ~"-d", ~"--long2", ~"value2"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(Some("long1"), Some("g"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long2"), Some("h"), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(ctx.check(d_opt) == true);
+  assert!(ctx.check(e_opt) == false);
+  match ctx.take_value::<~str>(g_opt) {
+    Left(Some(value)) => assert!(value == ~"value1"),
+    _ => assert!(false)
+  }
+  match ctx.take_value::<~str>(h_opt) {
+    Left(Some(value)) => assert!(value == ~"value2"),
+    _ => assert!(false)
+  }
+}
+
+#[test]
 fn test_check_result_single_value_valid_int() {
   let args = ~[~"test", ~"-i", ~"33"];
   let mut ctx = Context::new("test [option] [argument]", args);
@@ -291,7 +312,6 @@ fn test_check_result_single_value_unpassed2() {
   assert!(e_val == 0);
   ctx.check(a_opt);
 }
-
 
 // Tests for the 'Unique' flag
 #[test]
