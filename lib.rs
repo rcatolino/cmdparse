@@ -281,8 +281,15 @@ impl Context {
     self.count(opt) != 0
   }
 
-  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[T], uint> {
-    Right(self.count(opt))
+  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
+    match self.results.get_opt(opt.borrow().result_idx) {
+      Some(res) => if res.values.len() == 0 {
+        Right(res.passed)
+      } else {
+        Left(res.values.map(|value| from_str(*value)))
+      },
+      None => Right(0),
+    }
   }
 
   pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {

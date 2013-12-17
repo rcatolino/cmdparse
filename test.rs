@@ -313,6 +313,77 @@ fn test_check_result_single_value_unpassed2() {
   ctx.check(a_opt);
 }
 
+#[test]
+fn test_check_result_multiple_values_int() {
+  let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"32", ~"--int=31", ~"--int", ~"30"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  match ctx.take_values::<int>(e_opt) {
+    Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
+      opt_val.or_else(|| { assert!(false); None})
+    }).zip((~[33, 32, 31, 30]).move_iter()) {
+      assert!(val == expected);
+    },
+    Right(_) => assert!(false)
+  }
+}
+
+#[test]
+fn test_check_result_multiple_values_int_invalid() {
+  let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"notanint", ~"--int=31", ~"--int", ~"30"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  match ctx.take_values::<int>(e_opt) {
+    Left(values) => for (val, expected) in values.move_iter().
+      filter_map(|opt_val| opt_val).zip((~[33, 31, 30]).move_iter()) {
+      assert!(val == expected);
+    },
+    Right(_) => assert!(false)
+  }
+}
+
+#[test]
+fn test_check_result_multiple_values_some() {
+  let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"--int=31", ~"--int", ~"30"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  match ctx.take_values::<int>(e_opt) {
+    Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
+      opt_val.or_else(|| { assert!(false); None})
+    }).zip((~[33, 31, 30]).move_iter()) {
+      assert!(val == expected);
+    },
+    Right(_) => assert!(false)
+  }
+}
+
+#[test]
+fn test_check_result_multiple_values_none() {
+  let args = ~[~"test"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  match ctx.take_values::<int>(e_opt) {
+    Left(_) => assert!(false),
+    Right(nb) => assert!(nb == 0)
+  }
+}
+
+#[test]
+fn test_check_result_multiple_values_unpassed() {
+  let args = ~[~"test", ~"-i", ~"--int"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  match ctx.take_values::<int>(e_opt) {
+    Left(_) => assert!(false),
+    Right(nb) => assert!(nb == 2)
+  }
+}
+
 // Tests for the 'Unique' flag
 #[test]
 fn test_check_result_no_value_no_flags_multiple() {
@@ -355,8 +426,6 @@ fn test_check_result_no_value_unique2() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
     Ok(()) => assert!(false)
   }
-  println("5");
   ctx.count(d_opt);
-  println("6");
   ctx.count(l3_opt);
 }
