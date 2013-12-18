@@ -1,6 +1,5 @@
 #[desc = "Library to parse simple command line options"];
 #[license = "MIT"];
-#[link(name="cmdparse")];
 
 /*!
   Command line option parsing
