@@ -111,6 +111,11 @@ impl RawArg {
   }
 }
 
+trait Validable {
+  fn validate(&self, name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
+    Result<(), ~str>;
+}
+
 priv struct Opt {
   short_name: Option<char>,
   long_name: Option<&'static str>,
@@ -135,6 +140,39 @@ impl Opt {
   }
 }
 
+impl Validable for Cmd {
+  fn validate(&self, name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
+    Result<(), ~str> {
+      Err(~"Unimplemented")
+  }
+}
+
+impl Validable for Opt {
+  fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
+    Result<(), ~str> {
+
+    let res = &mut results[self.result_idx];
+    res.passed += 1;
+    if res.passed > 1 && self.has_flag(Flags::Unique) {
+      return Err(format!("The option : {:s} was given more than once", opt_name));
+    } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
+      if rargs.head_opt().map_default(false, |narg| !narg.option()) {
+        Some(rargs.shift().value())
+      } else if self.has_flag(Flags::TakesArg) {
+        return Err(format!("Missing argument for option : {:s}", opt_name));
+      } else {
+        None
+      }
+    } else {
+      None
+    }.map(|value| res.values.push(value));
+
+    Ok(())
+  }
+}
+
+priv struct Cmd;
+
 pub struct Context {
   // A summary describing the application and/or an exemple.
   priv summary: &'static str,
@@ -142,6 +180,7 @@ pub struct Context {
   // A map of globally valid options.
   priv loptions: HashMap<&'static str, Rc<Opt>>,
   priv soptions: HashMap<char, Rc<Opt>>,
+  priv commands: HashMap<&'static str, Cmd>,
   // The arguments provided by the user.
   priv raw_args: ~[RawArg],
   // The results found for each Opt after validation
@@ -158,6 +197,7 @@ impl Context {
       alignment: min_align,
       loptions: HashMap::new(),
       soptions: HashMap::new(),
+      commands: HashMap::new(),
       raw_args: Context::prep_args(args),
       results: ~[],
       residual_args: ~[],
@@ -225,60 +265,32 @@ impl Context {
     Ok(opt)
   }
 
-  fn check_next_value(&self) -> bool {
-    self.raw_args.head_opt().map_default(false, |narg| !narg.option())
-  }
-
-  fn find_opt(&self, arg: &RawArg) -> (bool, Option<Rc<Opt>>) {
-    match *arg {
-      Short(ref c) => (true, self.soptions.find_copy(c)),
-      Long(ref name) => (true, self.loptions.find_equiv(name).map(|a| a.clone())),
-      Neither(_) => (false, None),
-    }
-  }
-
   /// Validate the input arguments against the options specified via add_option().
   /// Return an Err() when the input isn't valid.
   pub fn validate(&mut self) -> Result<(), ~str> {
-    // Peekable iterator not really usable here since it prevents
-    // from mutating the rest of the elements while borrowed.
-    let mut oarg = self.raw_args.shift_opt();
-    while oarg.is_some() {
-      let arg = oarg.unwrap(); // Can't fail since it's some.
-      match self.find_opt(&arg) {
-        (_, Some(opt)) => {
-          if self.residual_args.len() != 0 {
-            return Err(format!("Unexpected argument : {:s}.",
-                               self.residual_args.shift()));
+    let raw_args = &mut self.raw_args;
+    while raw_args.len() > 0 {
+      let raw_arg = raw_args.shift(); // Can't fail since len() > 0;
+      match match raw_arg {
+        Short(sname) => (self.soptions.find(&sname).
+                         map(|opt| opt.borrow() as &Validable), sname.to_str(), true),
+        Long(lname) => (self.loptions.find_equiv(&lname.as_slice()).
+                        map(|opt| opt.borrow() as &Validable), lname, true),
+        Neither(name) => (self.commands.find_equiv(&name.as_slice()).
+                          map(|cmd| cmd as &Validable), name, false),
+      } {
+        (None, name, true) => return Err(format!("Invalid option : {:s}.", name)),
+        (None, name, false) => self.residual_args.push(name),
+        (Some(to_validate), name, _) => {
+          match to_validate.validate(name, raw_args, self.results) {
+            Err(msg) => return Err(msg),
+            Ok(_) => if self.residual_args.len() != 0 {
+              return Err(format!("Unexpected argument : {:s}.", self.residual_args.shift()))
+            }
           }
-
-          let idx = opt.borrow().result_idx;
-          self.results[idx].passed += 1;
-          let res = &self.results[idx];
-          if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
-            return Err(format!("The option : {:s} was given more than once",
-                               arg.value()));
-          } else if opt.borrow().has_flag(Flags::TakesArg) {
-              if self.check_next_value() {
-                Some((self.raw_args.shift().value(), idx))
-              } else {
-                return Err(format!("Missing argument for option : {:s}",
-                                   arg.value()));
-              }
-          } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
-                    && self.check_next_value() {
-              Some((self.raw_args.shift().value(), idx))
-          } else {
-            None
-          }
-        },
-        (false, None) => { self.residual_args.push(arg.value()); None },
-        (true, None) => return Err(format!("Invalid option : {:s}", arg.value())),
-      }.map(|(value, idx)| self.results[idx].values.push(value));
-
-      oarg = self.raw_args.shift_opt();
+        }
+      }
     }
-
     Ok(())
   }
 
