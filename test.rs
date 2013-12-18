@@ -10,21 +10,21 @@ use std::str;
 fn test_add_option_valid() {
   let mut ctx = Context::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options with no value:
-  ctx.add_option(Some("long"), Some("a"), Some("description"), Flags::Defaults).unwrap();
+  ctx.add_option(Some("long"), Some('a'), Some("description"), Flags::Defaults).unwrap();
   ctx.add_option(Some("long2"), None, Some("description"), Flags::Defaults).unwrap();
-  ctx.add_option(Some("long3"), Some("b"), None, Flags::Defaults).unwrap();
+  ctx.add_option(Some("long3"), Some('b'), None, Flags::Defaults).unwrap();
   ctx.add_option(Some("long4"), None, None, Flags::Defaults).unwrap();
-  ctx.add_option(None, Some("c"), Some("description"), Flags::Defaults).unwrap();
-  ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  ctx.add_option(None, Some('c'), Some("description"), Flags::Defaults).unwrap();
+  ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
 }
 
 #[test]
 fn test_add_option_invalid_same_name() {
   let mut ctx = Context::new("test [option] [argument]", ~[~"test"]);
   // Those are valid options with no value:
-  ctx.add_option(Some("long"), Some("a"), None, Flags::Defaults).unwrap();
+  ctx.add_option(Some("long"), Some('a'), None, Flags::Defaults).unwrap();
   ctx.add_option(Some("long"), None, None, Flags::Defaults).unwrap_err();
-  ctx.add_option(Some("long2"), Some("a"), None, Flags::Defaults).unwrap_err();
+  ctx.add_option(Some("long2"), Some('a'), None, Flags::Defaults).unwrap_err();
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn test_add_option_invalid() {
 fn test_check_validation_invalid1() {
   let args = ~[~"test", ~"-i"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
   match ctx.validate() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
     Ok(()) => assert!(false),
@@ -52,7 +52,7 @@ fn test_check_validation_invalid1() {
 fn test_check_validation_invalid2() {
   let args = ~[~"test", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
   match ctx.validate() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
     Ok(()) => assert!(false),
@@ -64,7 +64,7 @@ fn test_check_validation_invalid2() {
 fn test_check_validation_invalid4() {
   let args = ~[~"test", ~"invalidarg", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(Some("long1"), Some('d'), None, Flags::Defaults).unwrap();
   match ctx.validate() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
     Ok(()) => assert!(false),
@@ -77,10 +77,10 @@ fn test_check_validation_invalid4() {
 fn test_check_result_no_value_no_flags_valid() {
   let args = ~[~"test", ~"-d", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(Some("long1"), Some("g"), None, Flags::Defaults).unwrap();
-  let h_opt = ctx.add_option(Some("long2"), Some("h"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(Some("long1"), Some('g'), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long2"), Some('h'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.check(d_opt) == true);
   assert!(ctx.check(e_opt) == false);
@@ -92,12 +92,12 @@ fn test_check_result_no_value_no_flags_valid() {
 fn test_check_result_no_value_no_flags_grouped() {
   let args = ~[~"test", ~"-deg", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(None, Some("g"), None, Flags::Defaults).unwrap();
-  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
-  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::Defaults).unwrap();
+  let f_opt = ctx.add_option(None, Some('f'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some('g'), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some('h'), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some('i'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.check(d_opt) == true);
   assert!(ctx.check(e_opt) == true);
@@ -111,12 +111,12 @@ fn test_check_result_no_value_no_flags_grouped() {
 fn test_check_result_grouped_value_valid() {
   let args = ~[~"test", ~"-deg", ~"value", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(None, Some("g"), None, Flags::TakesArg).unwrap();
-  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
-  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::Defaults).unwrap();
+  let f_opt = ctx.add_option(None, Some('f'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some('g'), None, Flags::TakesArg).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some('h'), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some('i'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.check(d_opt) == true);
   assert!(ctx.check(e_opt) == true);
@@ -134,12 +134,12 @@ fn test_check_result_grouped_value_valid() {
 fn test_check_result_grouped_value_invalid() {
   let args = ~[~"test", ~"-deg", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::TakesOptionalArg).unwrap();
-  let f_opt = ctx.add_option(None, Some("f"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(None, Some("g"), None, Flags::Defaults).unwrap();
-  let h_opt = ctx.add_option(Some("long1"), Some("h"), None, Flags::Defaults).unwrap();
-  let i_opt = ctx.add_option(Some("long2"), Some("i"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::TakesOptionalArg).unwrap();
+  let f_opt = ctx.add_option(None, Some('f'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(None, Some('g'), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long1"), Some('h'), None, Flags::Defaults).unwrap();
+  let i_opt = ctx.add_option(Some("long2"), Some('i'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.check(d_opt) == true);
   assert!(ctx.check(g_opt) == true);
@@ -156,10 +156,10 @@ fn test_check_result_grouped_value_invalid() {
 fn test_check_result_long_option_values() {
   let args = ~[~"test", ~"--long1=value1", ~"-d", ~"--long2", ~"value2"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(Some("long1"), Some("g"), None, Flags::TakesArg).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  let h_opt = ctx.add_option(Some("long2"), Some("h"), None, Flags::TakesArg).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(Some("long1"), Some('g'), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long2"), Some('h'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.check(d_opt) == true);
   assert!(ctx.check(e_opt) == false);
@@ -177,7 +177,7 @@ fn test_check_result_long_option_values() {
 fn test_check_result_single_value_valid_int() {
   let args = ~[~"test", ~"-i", ~"33"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("i"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => value,
@@ -191,7 +191,7 @@ fn test_check_result_single_value_valid_int() {
 fn test_check_result_single_value_valid_bool() {
   let args = ~[~"test", ~"-b", ~"true"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("b"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => value,
@@ -205,7 +205,7 @@ fn test_check_result_single_value_valid_bool() {
 fn test_check_result_single_value_valid_str() {
   let args = ~[~"test", ~"-s", ~"value"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("s"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('s'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => value,
@@ -219,7 +219,7 @@ fn test_check_result_single_value_valid_str() {
 fn test_check_result_single_value_valid_float() {
   let args = ~[~"test", ~"-f", ~"1.5"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("f"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('f'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => value,
@@ -233,7 +233,7 @@ fn test_check_result_single_value_valid_float() {
 fn test_check_result_single_value_invalid_int() {
   let args = ~[~"test", ~"-i", ~"invalid"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("i"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => {assert!(false); value}
@@ -247,7 +247,7 @@ fn test_check_result_single_value_invalid_int() {
 fn test_check_result_single_value_invalid_bool() {
   let args = ~[~"test", ~"-b", ~"invalid"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("b"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => {assert!(false); value}
@@ -261,7 +261,7 @@ fn test_check_result_single_value_invalid_bool() {
 fn test_check_result_single_value_invalid_float() {
   let args = ~[~"test", ~"-f", ~"invalid"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("f"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(None, Some('f'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => {assert!(false); value}
@@ -275,8 +275,8 @@ fn test_check_result_single_value_invalid_float() {
 fn test_check_result_single_value_unpassed1() {
   let args = ~[~"test", ~"-s", ~"-a"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("s"), None, Flags::TakesOptionalArg).unwrap();
-  let a_opt = ctx.add_option(None, Some("a"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('s'), None, Flags::TakesOptionalArg).unwrap();
+  let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => {assert!(false); value}
@@ -291,8 +291,8 @@ fn test_check_result_single_value_unpassed1() {
 fn test_check_result_single_value_unpassed2() {
   let args = ~[~"test", ~"-a"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(None, Some("s"), None, Flags::TakesOptionalArg).unwrap();
-  let a_opt = ctx.add_option(None, Some("a"), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('s'), None, Flags::TakesOptionalArg).unwrap();
+  let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match ctx.take_value(e_opt) {
     Left(Some(value)) => {assert!(false); value}
@@ -307,7 +307,7 @@ fn test_check_result_single_value_unpassed2() {
 fn test_check_result_multiple_values_int() {
   let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"32", ~"--int=31", ~"--int", ~"30"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match ctx.take_values::<int>(e_opt) {
     Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
@@ -323,7 +323,7 @@ fn test_check_result_multiple_values_int() {
 fn test_check_result_multiple_values_int_invalid() {
   let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"notanint", ~"--int=31", ~"--int", ~"30"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesArg).unwrap();
+  let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match ctx.take_values::<int>(e_opt) {
     Left(values) => for (val, expected) in values.move_iter().
@@ -338,7 +338,7 @@ fn test_check_result_multiple_values_int_invalid() {
 fn test_check_result_multiple_values_some() {
   let args = ~[~"test", ~"-i", ~"33" , ~"-i", ~"--int=31", ~"--int", ~"30"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match ctx.take_values::<int>(e_opt) {
     Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
@@ -354,7 +354,7 @@ fn test_check_result_multiple_values_some() {
 fn test_check_result_multiple_values_none() {
   let args = ~[~"test"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match ctx.take_values::<int>(e_opt) {
     Left(_) => assert!(false),
@@ -366,7 +366,7 @@ fn test_check_result_multiple_values_none() {
 fn test_check_result_multiple_values_unpassed() {
   let args = ~[~"test", ~"-i", ~"--int"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let e_opt = ctx.add_option(Some("int"), Some("i"), None, Flags::TakesOptionalArg).unwrap();
+  let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match ctx.take_values::<int>(e_opt) {
     Left(_) => assert!(false),
@@ -380,7 +380,7 @@ fn test_check_result_multiple_values_unpassed() {
 fn test_check_validation_valid_argument1() {
   let args = ~[~"test", ~"--long1", ~"validarg1", ~"validarg2"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(Some("long1"), Some('d'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   for (arg, expected) in ctx.get_args().iter().
     zip((~["validarg1", "validarg2"]).move_iter()) {
@@ -393,7 +393,7 @@ fn test_check_validation_valid_argument1() {
 fn test_check_validation_valid_argument2() {
   let args = ~[~"test", ~"--long1", ~"validarg1", ~"validarg2"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(Some("long1"), Some("d"), None, Flags::TakesArg).unwrap();
+  let d_opt = ctx.add_option(Some("long1"), Some('d'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   for (arg, expected) in ctx.get_args().iter().
     zip((~["validarg2"]).move_iter()) {
@@ -413,10 +413,10 @@ fn test_check_validation_valid_argument2() {
 fn test_check_result_no_value_no_flags_multiple() {
   let args = ~[~"test", ~"-d", ~"--long1", ~"-d", ~"--long1"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Defaults).unwrap();
-  let e_opt = ctx.add_option(None, Some("e"), None, Flags::Defaults).unwrap();
-  let g_opt = ctx.add_option(Some("long1"), Some("g"), None, Flags::Defaults).unwrap();
-  let h_opt = ctx.add_option(Some("long2"), Some("h"), None, Flags::Defaults).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Defaults).unwrap();
+  let e_opt = ctx.add_option(None, Some('e'), None, Flags::Defaults).unwrap();
+  let g_opt = ctx.add_option(Some("long1"), Some('g'), None, Flags::Defaults).unwrap();
+  let h_opt = ctx.add_option(Some("long2"), Some('h'), None, Flags::Defaults).unwrap();
   let l3_opt = ctx.add_option(Some("long3"), None, None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   assert!(ctx.count(d_opt) == 2);
@@ -430,7 +430,7 @@ fn test_check_result_no_value_no_flags_multiple() {
 fn test_check_result_no_value_unique() {
   let args = ~[~"test", ~"-d", ~"--long3", ~"-d"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Unique).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Unique).unwrap();
   let l3_opt = ctx.add_option(Some("long3"), None, None, Flags::Defaults).unwrap();
   match ctx.validate() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),
@@ -444,7 +444,7 @@ fn test_check_result_no_value_unique() {
 fn test_check_result_no_value_unique2() {
   let args = ~[~"test", ~"-d", ~"--long3", ~"-d"];
   let mut ctx = Context::new("test [option] [argument]", args);
-  let d_opt = ctx.add_option(None, Some("d"), None, Flags::Unique).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::Unique).unwrap();
   let l3_opt = ctx.add_option(Some("long3"), None, None, Flags::TakesOptionalArg).unwrap();
   match ctx.validate() {
     Err(msg) => ctx.print_help(Some(msg.as_slice())),

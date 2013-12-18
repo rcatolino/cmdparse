@@ -78,6 +78,7 @@ use std::result::Result;
 use std::rc::Rc;
 
 static min_align: uint = 15;
+
 pub mod Flags {
   pub static Defaults: uint = 0;
   pub static Unique: uint = 1 << 0;
@@ -91,20 +92,29 @@ priv struct Res {
   values: ~[~str],     // Arguments it's been given
 }
 
-priv struct RawArg {
-  option: bool,       // Options start with - or --
-  value: ~str,
+priv enum RawArg {
+  Short(char),
+  Long(~str),
+  Neither(~str),
 }
 
 impl RawArg {
-  pub fn new(value: ~str, option: bool) -> RawArg {
-    RawArg { option: option, value: value }
+  pub fn option(&self) -> bool {
+    match *self {
+      Neither(_) => false, _ => true
+    }
+  }
+
+  pub fn value(self) -> ~str {
+    match self {
+      Short(c) => c.to_str(), Long(a) | Neither(a) => a,
+    }
   }
 }
 
 priv struct Opt {
+  short_name: Option<char>,
   long_name: Option<&'static str>,
-  short_name: Option<&'static str>,
   description: Option<&'static str>,
   flags: uint,
   result_idx: uint
@@ -112,7 +122,7 @@ priv struct Opt {
 
 impl Opt {
   fn new(long_name: Option<&'static str>,
-         short_name: Option<&'static str>,
+         short_name: Option<char>,
          descr: Option<&'static str>,
          flags: uint,
          res_idx: uint) -> Opt {
@@ -128,16 +138,17 @@ impl Opt {
 
 pub struct Context {
   // A summary describing the application and/or an exemple.
-  summary: &'static str,
-  alignment: uint,
+  priv summary: &'static str,
+  priv alignment: uint,
   // A map of globally valid options.
-  options: HashMap<&'static str, Rc<Opt>>,
+  priv loptions: HashMap<&'static str, Rc<Opt>>,
+  priv soptions: HashMap<char, Rc<Opt>>,
   // The arguments provided by the user.
-  raw_args: ~[RawArg],
+  priv raw_args: ~[RawArg],
   // The results found for each Opt after validation
-  results: ~[Res],
+  priv results: ~[Res],
   // The arguments left after validation
-  residual_args: ~[~str],
+  priv residual_args: ~[~str],
 }
 
 impl Context {
@@ -146,7 +157,8 @@ impl Context {
     Context {
       summary: description,
       alignment: min_align,
-      options: HashMap::new(),
+      loptions: HashMap::new(),
+      soptions: HashMap::new(),
       raw_args: Context::prep_args(args),
       results: ~[],
       residual_args: ~[],
@@ -162,28 +174,28 @@ impl Context {
         // Long option
         let mut cit = arg.slice_from(2).splitn('=', 1);
         cit.next().and_then(|ovalue| {
-          vect.push(RawArg::new(ovalue.to_owned(), true));
+          vect.push(Long(ovalue.to_owned()));
           cit.next()
-        }).map(|ovalue| vect.push(RawArg::new(ovalue.to_owned(), false)));
+        }).map(|ovalue| vect.push(Neither(ovalue.to_owned())));
       } else if arg.starts_with("-") {
         // Short option(s)
         for c in arg.chars().skip(1) {
-          vect.push(RawArg::new(c.to_str(), true));
+          vect.push(Short(c));
         }
       } else {
-        vect.push(RawArg::new(arg, false));
+        vect.push(Neither(arg));
       }
     }
+
     vect
   }
 
   /// Specify valid options for your program. Return Err() if
   /// the option has neither short nor long name or if an option
   /// with the same name was already added.
-  // TODO: change the type of short name to Option<char>
   pub fn add_option(&mut self,
                     long_name: Option<&'static str>,
-                    short_name: Option<&'static str>,
+                    short_name: Option<char>,
                     description: Option<&'static str>,
                     flags: uint) -> Result<Rc<Opt>, &'static str> {
 
@@ -195,9 +207,7 @@ impl Context {
         // The alignment is used in print_help() to make sure the columns are
         // aligned.
         self.alignment = std::cmp::max(self.alignment, name.len() + min_align);
-        if name.len() < 2 {
-          return Err("A long name needs more than 1 character");
-        } else if !self.options.insert(name, opt.clone()) {
+        if !self.loptions.insert(name, opt.clone()) {
           return Err("An option with the same long name was already added");
         }
       }
@@ -207,9 +217,7 @@ impl Context {
     }
 
     match short_name {
-      Some(name) => if name.len() > 1 {
-        return Err("A short name can have only 1 character");
-      } else if !self.options.insert(name, opt.clone()) {
+      Some(name) => if !self.soptions.insert(name, opt.clone()) {
         return Err("An option with the same short name was already added");
       },
       None => {}
@@ -219,14 +227,18 @@ impl Context {
   }
 
   fn check_next_value(&self) -> bool {
-    self.raw_args.head_opt().map_default(false, |narg| if !narg.option {
-      true
-    } else {
-      false
-    })
+    self.raw_args.head_opt().map_default(false, |narg| !narg.option())
   }
 
-  /// Validate the input arguments against the options specified via add_option()
+  fn find_opt(&self, arg: &RawArg) -> (bool, Option<Rc<Opt>>) {
+    match *arg {
+      Short(ref c) => (true, self.soptions.find_copy(c)),
+      Long(ref name) => (true, self.loptions.find_equiv(name).map(|a| a.clone())),
+      Neither(_) => (false, None),
+    }
+  }
+
+  /// Validate the input arguments against the options specified via add_option().
   /// Return an Err() when the input isn't valid.
   pub fn validate(&mut self) -> Result<(), ~str> {
     // Peekable iterator not really usable here since it prevents
@@ -234,38 +246,36 @@ impl Context {
     let mut oarg = self.raw_args.shift_opt();
     while oarg.is_some() {
       let arg = oarg.unwrap(); // Can't fail since it's some.
-      if !arg.option {
-        self.residual_args.push(arg.value);
-      } else {
-        match self.options.find_equiv(&arg.value) {
-          Some(opt) => {
-            if self.residual_args.len() != 0 {
-              return Err(format!("Unexpected argument : {:s}.",
-                                 self.residual_args.shift()));
-            }
-            let idx = opt.borrow().result_idx;
-            self.results[idx].passed += 1;
-            let res = &self.results[idx];
-            if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
-              return Err(format!("The option : {:s} was given more than once",
-                                 arg.value));
-            } else if opt.borrow().has_flag(Flags::TakesArg) {
-                if self.check_next_value() {
-                  Some((self.raw_args.shift().value, idx))
-                } else {
-                  return Err(format!("Missing argument for option : {:s}",
-                                     arg.value));
-                }
-            } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
-                      && self.check_next_value() {
-                Some((self.raw_args.shift().value, idx))
-            } else {
-              None
-            }
-          },
-          None => return Err(format!("Invalid option : {:s}", arg.value)),
-        }.map(|(value, idx)| self.results[idx].values.push(value));
-      }
+      match self.find_opt(&arg) {
+        (_, Some(opt)) => {
+          if self.residual_args.len() != 0 {
+            return Err(format!("Unexpected argument : {:s}.",
+                               self.residual_args.shift()));
+          }
+
+          let idx = opt.borrow().result_idx;
+          self.results[idx].passed += 1;
+          let res = &self.results[idx];
+          if res.passed > 1 && opt.borrow().has_flag(Flags::Unique) {
+            return Err(format!("The option : {:s} was given more than once",
+                               arg.value()));
+          } else if opt.borrow().has_flag(Flags::TakesArg) {
+              if self.check_next_value() {
+                Some((self.raw_args.shift().value(), idx))
+              } else {
+                return Err(format!("Missing argument for option : {:s}",
+                                   arg.value()));
+              }
+          } else if opt.borrow().has_flag(Flags::TakesOptionalArg)
+                    && self.check_next_value() {
+              Some((self.raw_args.shift().value(), idx))
+          } else {
+            None
+          }
+        },
+        (false, None) => { self.residual_args.push(arg.value()); None },
+        (true, None) => return Err(format!("Invalid option : {:s}", arg.value())),
+      }.map(|(value, idx)| self.results[idx].values.push(value));
 
       oarg = self.raw_args.shift_opt();
     }
@@ -278,9 +288,9 @@ impl Context {
     self.count(opt) != 0
   }
 
-  /// Returns the value attached with the given option. (ie --option=value)
-  /// If the value is cannot be parsed into a valid T, returns Left(None),
-  /// If the option was given with no value, returns Right(true),
+  /// Returns the value attached with the given option. (ie --option=value).
+  /// If the value is cannot be parsed into a valid T, returns Left(None).
+  /// If the option was given with no value returns Right(true),
   /// or Right(false) if the option wasn't given.
   pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
     match self.results.get_opt(opt.borrow().result_idx) {
@@ -332,25 +342,23 @@ impl Context {
     print("Usage: \n  ");
     println(self.summary);
     println("Valid options :");
-    self.options.each_value(|opt| if !printed[opt.borrow().result_idx] {
-      printed[opt.borrow().result_idx] = true;
-      self.print_opt(opt.borrow())
-    } else {
-      true
-    });
+    for opt in self.soptions.iter().map(|(_, a)| a).
+      chain(self.loptions.iter().map(|(_,a)| a)) {
+      if !opt.borrow().has_flag(Flags::Hidden) && !printed[opt.borrow().result_idx] {
+        printed[opt.borrow().result_idx] = true;
+        self.print_opt(opt.borrow())
+      }
+    }
   }
 
-  fn print_opt(&self, opt: &Opt) -> bool {
+  fn print_opt(&self, opt: &Opt) {
     // Not using tabs cause they mess with the alignment
-    if opt.has_flag(Flags::Hidden) {
-      return true;
-    }
     print("  ");
     // Print until the long option
     let mut align = self.alignment;
     match opt.short_name {
       Some(name) => {
-        print!("-{:s}", name);
+        print!("-{:s}", name.to_str());
         if opt.long_name.is_none() {
           if opt.has_flag(Flags::TakesOptionalArg) {
             print!(" [argument]");
@@ -385,6 +393,5 @@ impl Context {
       Some(value) => println(value),
       None => print("\n")
     }
-    true
   }
 }
