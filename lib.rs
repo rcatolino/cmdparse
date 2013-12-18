@@ -1,4 +1,4 @@
-#[desc = "Library to parse simple command line arguments"];
+#[desc = "Library to parse simple command line options"];
 #[license = "MIT"];
 #[link(name="cmdparse")];
 
@@ -13,10 +13,9 @@
 
   # To do
   - Commands taking their own options
-  - Anonymous arguments
 
   # Example, to parse the options :
-  "-h/--help, -l, --option, -a [optional_argument(int)], -m <mandatory_argument(str)>"
+  "-h/--help, -l, --option, -a [optional_argument(int)], -m mandatory_argument(str) leftover_argument"
 
   ```rust
   // First create the context with the program summary and the input arguments :
@@ -87,15 +86,9 @@ pub mod Flags {
   pub static TakesOptionalArg: uint = 1 << 3;
 }
 
-pub struct Cmd {
-  name: &'static str,
-  description: Option<&'static str>,
-  options: ~[Rc<Opt>]
-}
-
 priv struct Res {
-  passed: uint,   // Number of time we've seen this option
-  values: ~[~str],     // Values of the arguments it's been given
+  passed: uint,        // Number of time we've seen this option
+  values: ~[~str],     // Arguments it's been given
 }
 
 priv struct RawArg {
@@ -109,7 +102,7 @@ impl RawArg {
   }
 }
 
-pub struct Opt {
+priv struct Opt {
   long_name: Option<&'static str>,
   short_name: Option<&'static str>,
   description: Option<&'static str>,
@@ -139,8 +132,6 @@ pub struct Context {
   alignment: uint,
   // A map of globally valid options.
   options: HashMap<&'static str, Rc<Opt>>,
-  // A list of valid commands.
-  commands: ~[~Cmd],
   // The arguments provided by the user.
   raw_args: ~[RawArg],
   // The results found for each Opt after validation
@@ -156,7 +147,6 @@ impl Context {
       summary: description,
       alignment: min_align,
       options: HashMap::new(),
-      commands: ~[],
       raw_args: Context::prep_args(args),
       results: ~[],
       residual_args: ~[],
@@ -187,6 +177,10 @@ impl Context {
     vect
   }
 
+  /// Specify valid options for your program. Return Err() if
+  /// the option has neither short nor long name or if an option
+  /// with the same name was already added.
+  // TODO: change the type of short name to Option<char>
   pub fn add_option(&mut self,
                     long_name: Option<&'static str>,
                     short_name: Option<&'static str>,
@@ -198,7 +192,8 @@ impl Context {
     self.results.push(Res { passed:0, values:~[] });
     match long_name {
       Some(name) => {
-        // Update the alignment and check that there is a name.
+        // The alignment is used in print_help() to make sure the columns are
+        // aligned.
         self.alignment = std::cmp::max(self.alignment, name.len() + min_align);
         if name.len() < 2 {
           return Err("A long name needs more than 1 character");
@@ -231,6 +226,8 @@ impl Context {
     })
   }
 
+  /// Validate the input arguments against the options specified via add_option()
+  /// Return an Err() when the input isn't valid.
   pub fn validate(&mut self) -> Result<(), ~str> {
     // Peekable iterator not really usable here since it prevents
     // from mutating the rest of the elements while borrowed.
@@ -276,32 +273,15 @@ impl Context {
     Ok(())
   }
 
-  pub fn get_args<'a>(&'a self) -> &'a[~str] {
-    self.residual_args.as_slice()
-  }
-
-  pub fn count(&self, opt: Rc<Opt>) -> uint {
-    match self.results.get_opt(opt.borrow().result_idx) {
-      Some(res) => res.passed,
-      None => 0
-    }
-  }
-
+  /// Return whether the option was given among the input arguments.
   pub fn check(&self, opt: Rc<Opt>) -> bool {
     self.count(opt) != 0
   }
 
-  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
-    match self.results.get_opt(opt.borrow().result_idx) {
-      Some(res) => if res.values.len() == 0 {
-        Right(res.passed)
-      } else {
-        Left(res.values.map(|value| from_str(*value)))
-      },
-      None => Right(0),
-    }
-  }
-
+  /// Returns the value attached with the given option. (ie --option=value)
+  /// If the value is cannot be parsed into a valid T, returns Left(None),
+  /// If the option was given with no value, returns Right(true),
+  /// or Right(false) if the option wasn't given.
   pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
     match self.results.get_opt(opt.borrow().result_idx) {
       Some(res) => match res.values.head_opt() {
@@ -313,6 +293,33 @@ impl Context {
         }
       },
       None => Right(false),
+    }
+  }
+
+  /// Get an array containing the residual arguments.
+  pub fn get_args<'a>(&'a self) -> &'a[~str] {
+    self.residual_args.as_slice()
+  }
+
+  /// Variant of check() for when the option could be specified an
+  /// arbitrary number of times. (eg -vvv for the verbosity level)
+  pub fn count(&self, opt: Rc<Opt>) -> uint {
+    match self.results.get_opt(opt.borrow().result_idx) {
+      Some(res) => res.passed,
+      None => 0
+    }
+  }
+
+  /// Variant of take_value() for when the option can receive several values.
+  /// eg --output=file1 --output=pipe1
+  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
+    match self.results.get_opt(opt.borrow().result_idx) {
+      Some(res) => if res.values.len() == 0 {
+        Right(res.passed)
+      } else {
+        Left(res.values.map(|value| from_str(*value)))
+      },
+      None => Right(0),
     }
   }
 
