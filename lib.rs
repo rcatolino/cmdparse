@@ -140,13 +140,6 @@ impl Opt {
   }
 }
 
-impl Validable for Cmd {
-  fn validate(&self, name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
-    Result<(), ~str> {
-      Err(~"Unimplemented")
-  }
-}
-
 impl Validable for Opt {
   fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
     Result<(), ~str> {
@@ -171,72 +164,118 @@ impl Validable for Opt {
   }
 }
 
-priv struct Cmd;
-
-pub struct Context {
-  // A summary describing the application and/or an exemple.
-  priv summary: &'static str,
-  priv alignment: uint,
-  // A map of globally valid options.
-  priv loptions: HashMap<&'static str, Rc<Opt>>,
-  priv soptions: HashMap<char, Rc<Opt>>,
-  priv commands: HashMap<&'static str, Cmd>,
-  // The arguments provided by the user.
-  priv raw_args: ~[RawArg],
-  // The results found for each Opt after validation
-  priv results: ~[Res],
-  // The arguments left after validation
-  priv residual_args: ~[~str],
+priv struct Cmd; /* {
+  name: &'static str,
+  description: &'static str,
+  loptions: HashMap<&'static str, Rc<Opt>>,
+  soptions: HashMap<char, Rc<Opt>>,
+  results: ~[Res],
+  flags: uint,
+  result_idx: uint
 }
 
-impl Context {
-
-  pub fn new(description: &'static str, args: ~[~str]) -> Context {
-    Context {
-      summary: description,
-      alignment: min_align,
-      loptions: HashMap::new(),
-      soptions: HashMap::new(),
-      commands: HashMap::new(),
-      raw_args: Context::prep_args(args),
-      results: ~[],
-      residual_args: ~[],
+impl Validable for Cmd {
+  /// Validate the input arguments against the options specified via add_option().
+  /// Return an Err() when the input isn't valid.
+  fn validate(&self, cmd_name: ~str, rargs: &mut ~[RawArg],
+              parent_results: &mut [Res]) -> Result<(), ~str> {
+    // First check that the command has only been given once
+    if results[self.result_idx] > 0 {
+      return Err(~"Unexpected command : {:s}", cmd_name);
+    } else {
+      result[self.result_idx] += 1;
     }
-  }
 
-  fn prep_args(args: ~[~str]) -> ~[RawArg] {
-    let mut vect = ~[];
-
-    // skip the program name
-    for arg in args.move_iter().skip(1) {
-      if arg.starts_with("--") {
-        // Long option
-        let mut cit = arg.slice_from(2).splitn('=', 1);
-        cit.next().and_then(|ovalue| {
-          vect.push(Long(ovalue.to_owned()));
-          cit.next()
-        }).map(|ovalue| vect.push(Neither(ovalue.to_owned())));
-      } else if arg.starts_with("-") {
-        // Short option(s)
-        for c in arg.chars().skip(1) {
-          vect.push(Short(c));
+    while rargs.len() > 0 {
+      let raw_arg = rargs.shift(); // Can't fail since len() > 0;
+      match match raw_arg {
+        Short(sname) => (self.soptions.find(&sname).
+                         map(|opt| opt.borrow() as &Validable), sname.to_str(), true),
+        Long(lname) => (self.loptions.find_equiv(&lname.as_slice()).
+                        map(|opt| opt.borrow() as &Validable), lname, true),
+        Neither(name) => (None, name, false),
+      } {
+        (None, name, true) => return Err(format!("Invalid option : {:s} for command : {:s}.",
+                                                 name, cmd_name)),
+        (None, name, false) => self.residual_args.push(name),
+        (Some(to_validate), name, _) => {
+          match to_validate.validate(name, rargs, self.results) {
+            Err(msg) => return Err(msg),
+            Ok(_) => if self.residual_args.len() != 0 {
+              return Err(format!("Unexpected argument : {:s}.", self.residual_args.shift()))
+            }
+          }
         }
-      } else {
-        vect.push(Neither(arg));
       }
     }
+    Ok(())
+  }
+}
+*/
 
-    vect
+impl Validable for Cmd {
+  fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg], results: &mut [Res]) ->
+    Result<(), ~str> {
+    Err(~"Unimplemented")
+  }
+}
+
+pub struct LocalContext {
+  priv alignment: uint,
+  priv description: &'static str,
+  // Maps of locally valid options short/long.
+  priv loptions: HashMap<&'static str, Rc<Opt>>,
+  priv soptions: HashMap<char, Rc<Opt>>,
+  // The results found for each Opt after validation
+  priv results: ~[Res],
+}
+
+impl LocalContext {
+  pub fn new(description: &'static str) -> LocalContext {
+    LocalContext {
+      alignment: min_align,
+      description: description,
+      loptions: HashMap::new(),
+      soptions: HashMap::new(),
+      results: ~[],
+    }
   }
 
+  fn parse(&mut self, commands: Option<&HashMap<&'static str, Cmd>>,
+           rargs: &mut ~[RawArg], residual_args: &mut ~[~str]) -> Result<(), ~str> {
+    while rargs.len() > 0 {
+      let raw_arg = rargs.shift(); // Can't fail since len() > 0;
+      match match raw_arg {
+        Short(sname) => (self.soptions.find(&sname).
+                         map(|opt| opt.borrow() as &Validable), sname.to_str(), true),
+        Long(lname) => (self.loptions.find_equiv(&lname.as_slice()).
+                        map(|opt| opt.borrow() as &Validable), lname, true),
+        Neither(name) => (commands.and_then(|cmds| cmds.find_equiv(&name.as_slice()).
+                          map(|cmd| cmd as &Validable)), name, false),
+      } {
+        (None, name, true) => return Err(format!("Invalid option : {:s}.", name)),
+        (None, name, false) => residual_args.push(name),
+        (Some(to_validate), name, _) => {
+          match to_validate.validate(name, rargs, self.results) {
+            Err(msg) => return Err(msg),
+            Ok(_) => if residual_args.len() != 0 {
+              return Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
+            }
+          }
+        }
+      }
+    }
+    Ok(())
+  }
+}
+
+impl OptGroup for LocalContext {
   /// Specify valid options for your program. Return Err() if
   /// the option has neither short nor long name or if an option
   /// with the same name was already added.
-  pub fn add_option(&mut self,
-                    long_name: Option<&'static str>,
-                    short_name: Option<char>,
-                    description: Option<&'static str>,
-                    flags: uint) -> Result<Rc<Opt>, &'static str> {
+  fn add_option(&mut self, long_name: Option<&'static str>,
+                short_name: Option<char>, description: Option<&'static str>,
+                flags: uint) -> Result<Rc<Opt>, &'static str> {
 
     let opt = Rc::new(Opt::new(long_name, short_name, description, flags,
                                self.results.len()));
@@ -265,37 +304,8 @@ impl Context {
     Ok(opt)
   }
 
-  /// Validate the input arguments against the options specified via add_option().
-  /// Return an Err() when the input isn't valid.
-  pub fn validate(&mut self) -> Result<(), ~str> {
-    let raw_args = &mut self.raw_args;
-    while raw_args.len() > 0 {
-      let raw_arg = raw_args.shift(); // Can't fail since len() > 0;
-      match match raw_arg {
-        Short(sname) => (self.soptions.find(&sname).
-                         map(|opt| opt.borrow() as &Validable), sname.to_str(), true),
-        Long(lname) => (self.loptions.find_equiv(&lname.as_slice()).
-                        map(|opt| opt.borrow() as &Validable), lname, true),
-        Neither(name) => (self.commands.find_equiv(&name.as_slice()).
-                          map(|cmd| cmd as &Validable), name, false),
-      } {
-        (None, name, true) => return Err(format!("Invalid option : {:s}.", name)),
-        (None, name, false) => self.residual_args.push(name),
-        (Some(to_validate), name, _) => {
-          match to_validate.validate(name, raw_args, self.results) {
-            Err(msg) => return Err(msg),
-            Ok(_) => if self.residual_args.len() != 0 {
-              return Err(format!("Unexpected argument : {:s}.", self.residual_args.shift()))
-            }
-          }
-        }
-      }
-    }
-    Ok(())
-  }
-
   /// Return whether the option was given among the input arguments.
-  pub fn check(&self, opt: Rc<Opt>) -> bool {
+  fn check(&self, opt: Rc<Opt>) -> bool {
     self.count(opt) != 0
   }
 
@@ -303,7 +313,7 @@ impl Context {
   /// If the value is cannot be parsed into a valid T, returns Left(None).
   /// If the option was given with no value returns Right(true),
   /// or Right(false) if the option wasn't given.
-  pub fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
+  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
     match self.results.get_opt(opt.borrow().result_idx) {
       Some(res) => match res.values.head_opt() {
         Some(value) => Left(from_str(*value)),
@@ -317,14 +327,9 @@ impl Context {
     }
   }
 
-  /// Get an array containing the residual arguments.
-  pub fn get_args<'a>(&'a self) -> &'a[~str] {
-    self.residual_args.as_slice()
-  }
-
   /// Variant of check() for when the option could be specified an
   /// arbitrary number of times. (eg -vvv for the verbosity level)
-  pub fn count(&self, opt: Rc<Opt>) -> uint {
+  fn count(&self, opt: Rc<Opt>) -> uint {
     match self.results.get_opt(opt.borrow().result_idx) {
       Some(res) => res.passed,
       None => 0
@@ -333,7 +338,7 @@ impl Context {
 
   /// Variant of take_value() for when the option can receive several values.
   /// eg --output=file1 --output=pipe1
-  pub fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
+  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
     match self.results.get_opt(opt.borrow().result_idx) {
       Some(res) => if res.values.len() == 0 {
         Right(res.passed)
@@ -343,18 +348,86 @@ impl Context {
       None => Right(0),
     }
   }
+}
+
+pub struct Context {
+  // A summary describing the application and/or an exemple.
+  priv commands: HashMap<&'static str, Cmd>,
+  // The arguments provided by the user.
+  priv raw_args: ~[RawArg],
+  // The arguments left after validation
+  priv residual_args: ~[~str],
+  // The context containing all the global options.
+  priv inner_ctx: LocalContext,
+}
+
+pub trait OptGroup {
+  fn check(&self, opt: Rc<Opt>) -> bool;
+  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool>;
+  fn count(&self, opt: Rc<Opt>) -> uint;
+  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint>;
+  fn add_option(&mut self, lname: Option<&'static str>,
+                sname: Option<char>, description: Option<&'static str>,
+                flags: uint) -> Result<Rc<Opt>, &'static str>;
+}
+
+impl Context {
+  pub fn new(description: &'static str, args: ~[~str]) -> Context {
+    Context {
+      commands: HashMap::new(),
+      raw_args: Context::prep_args(args),
+      residual_args: ~[],
+      inner_ctx: LocalContext::new(description),
+    }
+  }
+
+  fn prep_args(args: ~[~str]) -> ~[RawArg] {
+    let mut vect = ~[];
+
+    // skip the program name
+    for arg in args.move_iter().skip(1) {
+      if arg.starts_with("--") {
+        // Long option
+        let mut cit = arg.slice_from(2).splitn('=', 1);
+        cit.next().and_then(|ovalue| {
+          vect.push(Long(ovalue.to_owned()));
+          cit.next()
+        }).map(|ovalue| vect.push(Neither(ovalue.to_owned())));
+      } else if arg.starts_with("-") {
+        // Short option(s)
+        for c in arg.chars().skip(1) {
+          vect.push(Short(c));
+        }
+      } else {
+        vect.push(Neither(arg));
+      }
+    }
+
+    vect
+  }
+
+  /// Validate the input arguments against the options specified via add_option().
+  /// Return an Err() when the input isn't valid.
+  pub fn validate(&mut self) -> Result<(), ~str> {
+    self.inner_ctx.parse(Some(&self.commands), &mut self.raw_args, &mut self.residual_args)
+  }
+
+  /// Get an array containing the residual arguments.
+  pub fn get_args<'a>(&'a self) -> &'a[~str] {
+    self.residual_args.as_slice()
+  }
 
   pub fn print_help(&self, msg: Option<&str>) {
     let mut printed: ~[bool] = ~[];
-    printed.grow_fn(self.results.len(), |_| false);
+    printed.grow_fn(self.inner_ctx.results.len(), |_| false);
     match msg {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
     print("Usage: \n  ");
-    println(self.summary);
+    println(self.inner_ctx.description);
     println("Valid options :");
-    for opt in self.soptions.iter().map(|(_, a)| a).
-      chain(self.loptions.iter().map(|(_,a)| a)) {
+    for opt in self.inner_ctx.soptions.iter().map(|(_, a)| a).
+      chain(self.inner_ctx.loptions.iter().map(|(_,a)| a)) {
       if !opt.borrow().has_flag(Flags::Hidden) && !printed[opt.borrow().result_idx] {
         printed[opt.borrow().result_idx] = true;
         self.print_opt(opt.borrow())
@@ -366,7 +439,7 @@ impl Context {
     // Not using tabs cause they mess with the alignment
     print("  ");
     // Print until the long option
-    let mut align = self.alignment;
+    let mut align = self.inner_ctx.alignment;
     match opt.short_name {
       Some(name) => {
         print!("-{:s}", name.to_str());
@@ -404,5 +477,29 @@ impl Context {
       Some(value) => println(value),
       None => print("\n")
     }
+  }
+}
+
+impl OptGroup for Context {
+  fn add_option(&mut self, lname: Option<&'static str>,
+                sname: Option<char>, description: Option<&'static str>,
+                flags: uint) -> Result<Rc<Opt>, &'static str> {
+    self.inner_ctx.add_option(lname, sname, description, flags)
+  }
+  // TODO add checks
+  fn check(&self, opt: Rc<Opt>) -> bool {
+    self.inner_ctx.check(opt)
+  }
+
+  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
+    self.inner_ctx.take_value(opt)
+  }
+
+  fn count(&self, opt: Rc<Opt>) -> uint {
+    self.inner_ctx.count(opt)
+  }
+
+  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
+    self.inner_ctx.take_values(opt)
   }
 }

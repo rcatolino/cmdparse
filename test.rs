@@ -1,8 +1,6 @@
 extern mod cmdparse;
 
-use cmdparse::Context;
-use cmdparse::Flags;
-
+use cmdparse::{Context,OptGroup,Flags};
 use std::str;
 
 // Tests for the options creation
