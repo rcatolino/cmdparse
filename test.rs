@@ -451,3 +451,22 @@ fn test_check_result_no_value_unique2() {
   ctx.count(d_opt);
   ctx.count(l3_opt);
 }
+
+// Tests with commands
+#[test]
+fn test_add_command_valid() {
+  let mut ctx = Context::new("test [option] command [argument]", ~[~"test"]);
+  // Those are valid options:
+  let mut cmd = ctx.add_command("command", "description").unwrap();
+}
+
+#[test]
+fn test_add_command_invalid_same_name() {
+  let mut ctx = Context::new("test [option] command [argument]", ~[~"test"]);
+  {
+  let cmd1 = ctx.add_command("command", "description").unwrap();
+  }
+  {
+  let cmd2 = ctx.add_command("command", "description2").unwrap_err();
+  }
+}
