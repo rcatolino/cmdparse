@@ -1,8 +1,9 @@
-
+#[cfg(test)]
 use lib::{Context,OptGroup,Flags};
 use std::str;
 
 mod lib;
+
 // Tests for the options creation
 #[test]
 fn test_add_option_valid() {
@@ -246,6 +247,51 @@ fn test_check_result_single_value_valid_float() {
     Err(_) => {assert!(false); 0f32}
   };
   assert!(e_val == 1.5);
+}
+
+#[test]
+fn test_check_result_single_value_valid_bool2() {
+  let args = ~[~"test", ~"-b", ~"true"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  let e_val = e_opt.value_or(&ctx, false);
+  assert!(e_val == true);
+}
+
+#[test]
+#[should_fail]
+fn test_check_result_single_value_invalid_bool2() {
+  let args = ~[~"test", ~"-b", ~"value"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  let e_val = e_opt.value_or(&ctx, false);
+  assert!(e_val == false);
+}
+
+#[test]
+fn test_check_result_single_value_invalid_bool3() {
+  let args = ~[~"test", ~"-c", ~"true"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
+  ctx.add_option(None, Some('c'), None, Flags::TakesArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  let e_val = e_opt.value_or(&ctx, false);
+  assert!(e_val == false);
+}
+
+#[test]
+fn test_check_result_single_value_invalid_bool4() {
+  let args = ~[~"test", ~"-c", ~"-d", ~"33"];
+  let mut ctx = Context::new("test [option] [argument]", args);
+  let c_opt = ctx.add_option(None, Some('c'), None, Flags::TakesOptionalArg).unwrap();
+  let d_opt = ctx.add_option(None, Some('d'), None, Flags::TakesOptionalArg).unwrap();
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  let c_val = c_opt.value_or(&ctx, 35);
+  let d_val = d_opt.value_or::<int>(&ctx, 35);
+  assert!(c_val == 35);
+  assert!(d_val == 33);
 }
 
 #[test]

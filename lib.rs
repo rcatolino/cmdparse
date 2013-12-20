@@ -1,4 +1,5 @@
 #[crate_id = "cmdparse#1.0"];
+#[crate_type = "lib"];
 #[desc = "Library to parse simple command line options"];
 #[license = "MIT"];
 
@@ -188,7 +189,7 @@ impl Context {
     vect
   }
 
-  /// Specify valid commands for your program. Use the 'op' parameters to add 
+  /// Specify valid commands for your program. Use the 'op' parameters to add
   /// the options for this command. Fail if a command with the same name
   /// was already added.
   pub fn add_cmd_with<T>(&mut self, name: &'static str,
@@ -433,6 +434,26 @@ impl Opt {
   /// Return whether the option was given among the input arguments.
   pub fn check(&self) -> bool {
     self.count() != 0
+  }
+
+  /// Return the value passed with the given option, or a default if
+  /// there was no value. Print a error message and the help if the value
+  /// was of an invalid type.
+  pub fn value_or<T: FromStr>(&self, ctx: &Context, default: T) -> T {
+    let mut res = self.result.borrow().borrow_mut();
+    match res.get().values.head_opt() {
+      Some(value) => match from_str(*value) {
+        Some(tvalue) => tvalue,
+        None => {
+          let msg = format!("Invalid type for value '{:s}'", *value);
+          ctx.print_help(Some(msg.as_slice()));
+          fail!();
+        }
+      },
+      None => {
+        default
+      }
+    }
   }
 
   /// Returns the value attached with the given option. (ie --option=value).
