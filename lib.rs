@@ -10,9 +10,10 @@
   - Options taking optional or mandatory arguments.
   - Grouping of short options
   - Automatic help message generation.
+  - Commands taking their own options
 
   # To do
-  - Commands taking their own options
+  Figure out a better api for the command stuff. Maybe using closures to add the options ?
 
   # Example, to parse the options :
   "-h/--help, -l, --option, -a [optional_argument(int)], -m mandatory_argument(str) leftover_argument"
@@ -202,15 +203,30 @@ impl Opt {
   }
 }
 
+#[deriving(Clone)]
+pub struct CmdRes(Rc<RefCell<bool>>);
+
+impl CmdRes {
+  pub fn check(&self) -> bool {
+    let res = (*self).borrow().borrow();
+    *res.get()
+  }
+
+  fn set(&self) {
+    let mut res = (*self).borrow().borrow_mut();
+    *res.get() = true;
+  }
+}
+
 pub struct Cmd {
   priv inner_ctx: LocalContext,
-  priv passed: bool,
+  priv result: CmdRes,
 }
 
 impl Cmd {
   fn new(description: &'static str) -> Cmd {
     Cmd { inner_ctx: LocalContext::new(description),
-          passed: false}
+          result: CmdRes(Rc::from_mut(RefCell::new(false))) }
   }
 
   fn validate(&mut self, cmd_name: ~str, rargs: &mut ~[RawArg],
@@ -218,16 +234,12 @@ impl Cmd {
     // First check that the command has only been given once
     if residual_args.len() != 0 {
       Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
-    } else if self.passed {
+    } else if self.result.check() {
       Err(format!("Unexpected command : {:s}", cmd_name))
     } else {
-      self.passed = true;
+      self.result.set();
       self.inner_ctx.parse(&mut HashMap::new(), rargs, residual_args)
     }
-  }
-
-  pub fn check(&self) -> bool {
-    self.passed
   }
 }
 
@@ -373,7 +385,7 @@ impl Context {
   /// an option with the same name was already added.
   pub fn add_command<'a>(&'a mut self, name: &'static str,
                      description: &'static str)
-                     -> Result<&'a mut Cmd, &'static str> {
+                     -> Result<(CmdRes, &'a mut Cmd), &'static str> {
 
     if !self.commands.insert(name, Cmd::new(description)) {
       return Err("This command was already added");
@@ -381,7 +393,8 @@ impl Context {
 
     // Is there a better way to get a mut ref to the value we've just
     // inserted, without doing a lookup ?
-    Ok(self.commands.get_mut(&name))
+    let cmd = self.commands.get_mut(&name);
+    Ok((cmd.result.clone(), cmd))
   }
 
   /// Validate the input arguments against the options specified via add_option().

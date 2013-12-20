@@ -509,18 +509,46 @@ fn test_add_command_option() {
   ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap_err();
   {
-    let cmd = ctx.add_command("command", "description").unwrap();
+    let (_ ,cmd) = ctx.add_command("command", "description").unwrap();
     cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap();
     cmd.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
     cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap_err();
   }
   {
-    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    let (_ ,cmd2) = ctx.add_command("command2", "description").unwrap();
     cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap();
     cmd2.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
     cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap_err();
   }
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+}
+
+#[test]
+fn test_command_valid_passed() {
+  let args = ~[~"test", ~"command"];
+  let mut ctx = Context::new("test [option] command [command-options]", args);
+  // Those are valid options:
+  let (cmd_opt, cmd_res) = {
+    let (cmd_res ,cmd) = ctx.add_command("command", "description").unwrap();
+    (cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap(), cmd_res)
+  };
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(cmd_res.check());
+  assert!(!cmd_opt.check());
+}
+
+#[test]
+fn test_command_valid_unpassed() {
+  let args = ~[~"test", ~"notacommand"];
+  let mut ctx = Context::new("test [option] command [command-options]", args);
+  // Those are valid options:
+  let (cmd_opt, cmd_res) = {
+    let (cmd_res ,cmd) = ctx.add_command("command", "description").unwrap();
+    (cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap(), cmd_res)
+  };
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+  assert!(!cmd_res.check());
+  assert!(!cmd_opt.check());
 }
 
 #[test]
@@ -531,7 +559,7 @@ fn test_command_invalid_command_option() {
   ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
   {
-    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    let (_ ,cmd2) = ctx.add_command("command2", "description").unwrap();
     (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
     cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
   };
@@ -549,7 +577,7 @@ fn test_command_invalid_command() {
   ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
   {
-    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    let (_ ,cmd2) = ctx.add_command("command2", "description").unwrap();
     (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
     cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
   };
@@ -566,23 +594,27 @@ fn test_command_option_check_results() {
   // Those are valid options:
   let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   let u_opt = ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
-  let (cmd_a_opt, cmd_b_opt) = {
-    let cmd = ctx.add_command("command", "description").unwrap();
+  let (cmd_a_opt, cmd_b_opt, cmd_res) = {
+    let (cmd_res, cmd) = ctx.add_command("command", "description").unwrap();
     (cmd.add_option(None, Some('a'), None, Flags::Defaults).unwrap(),
-    cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap())
+    cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
+    cmd_res)
   };
 
-  let (cmd2_b_opt, cmd2_c_opt) = {
-    let cmd2 = ctx.add_command("command2", "description").unwrap();
+  let (cmd2_b_opt, cmd2_c_opt, cmd2_res) = {
+    let (cmd2_res, cmd2) = ctx.add_command("command2", "description").unwrap();
     (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
-    cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
+    cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap(),
+    cmd2_res)
   };
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
 
   assert!(a_opt.check());
   assert!(!u_opt.check());
+  assert!(!cmd_res.check());
   assert!(!cmd_a_opt.check());
   assert!(!cmd_b_opt.check());
+  assert!(cmd2_res.check());
   assert!(cmd2_b_opt.check());
   assert!(!cmd2_c_opt.check());
 }
