@@ -73,7 +73,7 @@
 // value : kind argument that is anonymous and has a value.
 //         Can only be last or followed by other values.
 
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell};
 use std::hashmap::HashMap;
 use std::result::Result;
 use std::rc::Rc;
@@ -113,12 +113,13 @@ impl RawArg {
   }
 }
 
-priv struct Opt {
+#[deriving(Clone)]
+pub struct Opt {
   short_name: Option<char>,
   long_name: Option<&'static str>,
   description: Option<&'static str>,
   flags: uint,
-  result_idx: uint
+  result: Rc<RefCell<Res>>,
 }
 
 impl Opt {
@@ -126,24 +127,24 @@ impl Opt {
          short_name: Option<char>,
          descr: Option<&'static str>,
          flags: uint,
-         res_idx: uint) -> Opt {
+         result: Rc<RefCell<Res>>) -> Opt {
 
     Opt { long_name: long_name, short_name: short_name, description: descr,
-          flags: flags, result_idx: res_idx }
+          flags: flags, result: result }
   }
 
   fn has_flag(&self, flags: uint) -> bool {
     (self.flags & flags) != 0
   }
 
-  fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg], results: &mut [Res],
+  fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg],
               residual_args: &mut ~[~str]) -> Result<(), ~str> {
 
-    let res = &mut results[self.result_idx];
-    res.passed += 1;
+    let mut res = self.result.borrow().borrow_mut();
+    res.get().passed += 1;
     if residual_args.len() != 0 {
       return Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
-    } else if res.passed > 1 && self.has_flag(Flags::Unique) {
+    } else if res.get().passed > 1 && self.has_flag(Flags::Unique) {
       return Err(format!("The option : {:s} was given more than once", opt_name));
     } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
       if rargs.head_opt().map_default(false, |narg| !narg.option()) {
@@ -155,34 +156,78 @@ impl Opt {
       }
     } else {
       None
-    }.map(|value| res.values.push(value));
+    }.map(|value| res.get().values.push(value));
 
     Ok(())
   }
+
+  /// Return whether the option was given among the input arguments.
+  pub fn check(&self) -> bool {
+    self.count() != 0
+  }
+
+  /// Returns the value attached with the given option. (ie --option=value).
+  /// If the value is cannot be parsed into a valid T, returns Left(None).
+  /// If the option was given with no value returns Right(true),
+  /// or Right(false) if the option wasn't given.
+  pub fn take_value<T: FromStr>(&self) -> Either<Option<T>, bool> {
+    let mut res = self.result.borrow().borrow_mut();
+    let passed = res.get().passed;
+    match res.get().values.shift_opt() {
+      // Is there a way to avoid allocation of a new string when T: Str ?
+      Some(value) => Left(from_str(value)),
+      None => if passed == 0 {
+        Right(false)
+      } else {
+        Right(true)
+      }
+    }
+  }
+
+  /// Variant of check() for when the option could be specified an
+  /// arbitrary number of times. (eg -vvv for the verbosity level)
+  pub fn count(&self) -> uint {
+    self.result.borrow().borrow().get().passed
+  }
+
+  /// Variant of take_value() for when the option can receive several values.
+  /// eg --output=file1 --output=pipe1
+  pub fn take_values<T: FromStr>(&self) -> Either<~[Option<T>], uint> {
+    let mut res = self.result.borrow().borrow_mut();
+    if res.get().values.len() == 0 {
+      Right(res.get().passed)
+    } else {
+      Left(res.get().values.map(|value| from_str(*value)))
+    }
+  }
 }
 
-priv struct Cmd {
+pub struct Cmd {
   inner_ctx: LocalContext,
-  result_idx: uint
+  passed: bool,
 }
 
 impl Cmd {
-  fn new(description: &'static str, result_idx: uint) -> Cmd {
+  fn new(description: &'static str) -> Cmd {
     Cmd { inner_ctx: LocalContext::new(description),
-          result_idx: result_idx }
+          passed: false}
   }
 
-  fn validate(&mut self, cmd_name: ~str, rargs: &mut ~[RawArg], results: &mut [Res],
+  fn validate(&mut self, cmd_name: ~str, rargs: &mut ~[RawArg],
               residual_args: &mut ~[~str]) -> Result<(), ~str> {
     // First check that the command has only been given once
     if residual_args.len() != 0 {
       Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
-    } else if results[self.result_idx].passed > 0 {
+    } else if self.passed {
       Err(format!("Unexpected command : {:s}", cmd_name))
     } else {
-      results[self.result_idx].passed += 1;
+      self.passed = true;
       self.inner_ctx.parse(&mut HashMap::new(), rargs, residual_args)
     }
+  }
+
+  pub fn check(&self) -> bool {
+    self.passed
   }
 }
 
@@ -191,10 +236,10 @@ pub struct LocalContext {
   // A summary describing the application and/or an exemple.
   priv description: &'static str,
   // Maps of locally valid options short/long.
-  priv loptions: HashMap<&'static str, Rc<Opt>>,
-  priv soptions: HashMap<char, Rc<Opt>>,
-  // The results found for each Opt after validation
-  priv results: ~[Res],
+  priv loptions: HashMap<&'static str, Opt>,
+  priv soptions: HashMap<char, Opt>,
+  // Number of options added. Needed for print_help
+  nb_opt: uint,
 }
 
 impl LocalContext {
@@ -204,26 +249,23 @@ impl LocalContext {
       description: description,
       loptions: HashMap::new(),
       soptions: HashMap::new(),
+      nb_opt: 0,
     }
   }
 
-  fn parse(&mut self, cmds: &mut HashMap<&'static str, RefCell<Cmd>>,
+  fn parse(&mut self, cmds: &mut HashMap<&'static str, Cmd>,
            rargs: &mut ~[RawArg], residual_args: &mut ~[~str]) -> Result<(), ~str> {
     while rargs.len() > 0 {
       let raw_arg = rargs.shift(); // Can't fail since len() > 0;
       match match match raw_arg {
-        Short(sname) => (Left(self.soptions.find(&sname).
-                              map(|opt| opt.borrow())), sname.to_str()),
-        Long(lname) => (Left(self.loptions.find_equiv(&lname.as_slice()).
-                             map(|opt| opt.borrow())), lname),
-        Neither(nname) => (Right(cmds.find_mut_equiv(&nname.as_slice()).
-                                 map(|cmd| cmd.borrow_mut())), nname),
+        Short(sname) => (Left(self.soptions.find(&sname)), sname.to_str()),
+        Long(lname) => (Left(self.loptions.find_equiv(&lname.as_slice())), lname),
+        Neither(nname) => (Right(cmds.find_mut_equiv(&nname.as_slice())), nname),
       } {
         (Left(None), name) => Err(format!("Invalid option : {:s}.", name)),
         (Right(None), name) => { residual_args.push(name); Ok(()) }
-        (Left(Some(opt)), name) => opt.validate(name, rargs, self.results, residual_args),
-        (Right(Some(mut cmd)), name) => cmd.get().validate(name, rargs, self.results,
-                                                           residual_args),
+        (Left(Some(opt)), name) => opt.validate(name, rargs, residual_args),
+        (Right(Some(cmd)), name) => cmd.validate(name, rargs, residual_args),
       } {
         Err(msg) => return Err(msg),
         Ok(_) => {}
@@ -236,11 +278,10 @@ impl LocalContext {
 impl OptGroup for LocalContext {
   fn add_option(&mut self, long_name: Option<&'static str>,
                 short_name: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Rc<Opt>, &'static str> {
+                flags: uint) -> Result<Opt, &'static str> {
 
-    let opt = Rc::new(Opt::new(long_name, short_name, description, flags,
-                               self.results.len()));
-    self.results.push(Res { passed:0, values:~[] });
+    let opt = Opt::new(long_name, short_name, description, flags,
+                       Rc::from_mut(RefCell::new(Res { passed:0, values: ~[] })));
     match long_name {
       Some(name) => {
         // The alignment is used in print_help() to make sure the columns are
@@ -264,68 +305,15 @@ impl OptGroup for LocalContext {
 
     Ok(opt)
   }
-
-  fn check(&self, opt: Rc<Opt>) -> bool {
-    self.count(opt) != 0
-  }
-
-  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
-    match self.results.get_opt(opt.borrow().result_idx) {
-      Some(res) => match res.values.head_opt() {
-        Some(value) => Left(from_str(*value)),
-        None => if res.passed == 0 {
-          Right(false)
-        } else {
-          Right(true)
-        }
-      },
-      None => Right(false),
-    }
-  }
-
-  fn count(&self, opt: Rc<Opt>) -> uint {
-    match self.results.get_opt(opt.borrow().result_idx) {
-      Some(res) => res.passed,
-      None => 0
-    }
-  }
-
-  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
-    match self.results.get_opt(opt.borrow().result_idx) {
-      Some(res) => if res.values.len() == 0 {
-        Right(res.passed)
-      } else {
-        Left(res.values.map(|value| from_str(*value)))
-      },
-      None => Right(0),
-    }
-  }
 }
 
 pub trait OptGroup {
-  /// Return whether the option was given among the input arguments.
-  fn check(&self, opt: Rc<Opt>) -> bool;
-
-  /// Returns the value attached with the given option. (ie --option=value).
-  /// If the value is cannot be parsed into a valid T, returns Left(None).
-  /// If the option was given with no value returns Right(true),
-  /// or Right(false) if the option wasn't given.
-  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool>;
-
-  /// Variant of check() for when the option could be specified an
-  /// arbitrary number of times. (eg -vvv for the verbosity level)
-  fn count(&self, opt: Rc<Opt>) -> uint;
-
-  /// Variant of take_value() for when the option can receive several values.
-  /// eg --output=file1 --output=pipe1
-  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint>;
-
   /// Specify valid options for your program. Return Err() if
   /// the option has neither short nor long name or if an option
   /// with the same name was already added.
   fn add_option(&mut self, lname: Option<&'static str>,
                 sname: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Rc<Opt>, &'static str>;
+                flags: uint) -> Result<Opt, &'static str>;
 }
 
 pub struct Context {
@@ -336,7 +324,7 @@ pub struct Context {
   // The context containing all the global options.
   priv inner_ctx: LocalContext,
   // The map of the authorized commands.
-  priv commands: HashMap<&'static str, RefCell<Cmd>>,
+  priv commands: HashMap<&'static str, Cmd>,
 }
 
 impl Context {
@@ -378,17 +366,13 @@ impl Context {
   /// an option with the same name was already added.
   pub fn add_command<'a>(&'a mut self, name: &'static str,
                      description: &'static str)
-                     -> Result<RefMut<'a, Cmd>, &'static str> {
+                     -> Result<&'a Cmd, &'static str> {
 
-    self.inner_ctx.results.push(Res { passed:0, values:~[] });
-    if !self.commands.
-      insert(name, RefCell::new(Cmd::new(description,
-                                         self.inner_ctx.results.len()-1))) {
-      self.inner_ctx.results.pop();
+    if !self.commands.insert(name, Cmd::new(description)) {
       return Err("This command was already added");
     }
 
-    Ok(self.commands.get(&name).borrow_mut()) // Can't fail, it's just been inserted.
+    Ok(self.commands.get(&name)) // Can't fail, it's just been inserted.
   }
 
   /// Validate the input arguments against the options specified via add_option().
@@ -405,18 +389,17 @@ impl Context {
 
   pub fn print_help(&self, msg: Option<&str>) {
     let mut printed: ~[bool] = ~[];
-    printed.grow_fn(self.inner_ctx.results.len(), |_| false);
+    printed.grow_fn(self.inner_ctx.nb_opt, |_| false);
     match msg {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
     print("Usage: \n  ");
     println(self.inner_ctx.description);
     println("Valid options :");
-    for opt in self.inner_ctx.soptions.iter().map(|(_, a)| a).
-      chain(self.inner_ctx.loptions.iter().map(|(_,a)| a)) {
-      if !opt.borrow().has_flag(Flags::Hidden) && !printed[opt.borrow().result_idx] {
-        printed[opt.borrow().result_idx] = true;
-        self.print_opt(opt.borrow())
+    for opt in self.inner_ctx.soptions.iter().map(|(_, a)| a)/*.
+      chain(self.inner_ctx.loptions.iter().map(|(_,a)| a))*/ {
+      if !opt.has_flag(Flags::Hidden) {
+        self.print_opt(opt)
       }
     }
   }
@@ -469,23 +452,7 @@ impl Context {
 impl OptGroup for Context {
   fn add_option(&mut self, lname: Option<&'static str>,
                 sname: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Rc<Opt>, &'static str> {
+                flags: uint) -> Result<Opt, &'static str> {
     self.inner_ctx.add_option(lname, sname, description, flags)
-  }
-  // TODO add checks
-  fn check(&self, opt: Rc<Opt>) -> bool {
-    self.inner_ctx.check(opt)
-  }
-
-  fn take_value<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<Option<T>, bool> {
-    self.inner_ctx.take_value(opt)
-  }
-
-  fn count(&self, opt: Rc<Opt>) -> uint {
-    self.inner_ctx.count(opt)
-  }
-
-  fn take_values<T: FromStr>(&mut self, opt: Rc<Opt>) -> Either<~[Option<T>], uint> {
-    self.inner_ctx.take_values(opt)
   }
 }
