@@ -12,9 +12,6 @@
   - Automatic help message generation.
   - Commands taking their own options
 
-  # To do
-  Figure out a better api for the command stuff. Maybe using closures to add the options ?
-
   # Example, to parse the options :
   "-h/--help, -l, --option, -a [optional_argument(int)], -m mandatory_argument(str) leftover_argument"
 
@@ -395,6 +392,16 @@ impl Context {
     }
 
     vect
+  }
+
+  /// Specify valid commands for your program. Use the 'op' parameters to add 
+  /// the options for this command. Fail if a command with the same name
+  /// was already added.
+  pub fn add_cmd_with<T>(&mut self, name: &'static str,
+                         description: &'static str,
+                         op: |cmd: &mut Cmd| -> T) -> (CmdRes, T) {
+    let (res, cmd) = self.add_command(name, description).unwrap();
+    (res, op(cmd))
   }
 
   /// Specify valid commands for your program. Return Err() if

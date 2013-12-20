@@ -619,3 +619,36 @@ fn test_command_option_check_results() {
   assert!(!cmd2_c_opt.check());
 }
 
+#[test]
+fn test_command_option_with() {
+  let args = ~[~"test", ~"-a", ~"-c", ~"command", ~"-b", ~"-c", ~"cvalue", ~"argument"];
+  let mut ctx = Context::new("test [options] command [command-options] [argument]", args);
+
+  // Those are valid options:
+  let a_opt = ctx.add_sopt('a', "Option a");
+  let b_opt = ctx.add_sopt('b', "Option b");
+  let c_opt = ctx.add_sopt('c', "Option c");
+
+  // Those are valid commands:
+  let (cmd_res, (cmd_b, cmd_c, cmd_d)) = ctx.add_cmd_with("command", "description", |cmd| {
+    (cmd.add_sopt('b', "Cmd option b"),
+    cmd.add_option(None, Some('c'), Some("Cmd option c"), Flags::TakesArg).unwrap(),
+    cmd.add_sopt('d', "Cmd option d"))
+  });
+
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+
+  assert!(a_opt.check());
+  assert!(!b_opt.check());
+  assert!(c_opt.check());
+
+  assert!(cmd_res.check());
+  assert!(cmd_b.check());
+  assert!(!cmd_d.check());
+
+  match cmd_c.take_value::<~str>() {
+    Left(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
+  }
+
+  assert!(ctx.get_args().head() == &~"argument");
+}
