@@ -115,11 +115,11 @@ impl RawArg {
 
 #[deriving(Clone)]
 pub struct Opt {
-  short_name: Option<char>,
-  long_name: Option<&'static str>,
-  description: Option<&'static str>,
-  flags: uint,
-  result: Rc<RefCell<Res>>,
+  priv short_name: Option<char>,
+  priv long_name: Option<&'static str>,
+  priv description: Option<&'static str>,
+  priv flags: uint,
+  priv result: Rc<RefCell<Res>>,
 }
 
 impl Opt {
@@ -203,8 +203,8 @@ impl Opt {
 }
 
 pub struct Cmd {
-  inner_ctx: LocalContext,
-  passed: bool,
+  priv inner_ctx: LocalContext,
+  priv passed: bool,
 }
 
 impl Cmd {
@@ -231,13 +231,13 @@ impl Cmd {
   }
 }
 
-pub struct LocalContext {
-  priv alignment: uint,
+struct LocalContext {
+  alignment: uint,
   // A summary describing the application and/or an exemple.
-  priv description: &'static str,
+  description: &'static str,
   // Maps of locally valid options short/long.
-  priv loptions: HashMap<&'static str, Opt>,
-  priv soptions: HashMap<char, Opt>,
+  loptions: HashMap<&'static str, Opt>,
+  soptions: HashMap<char, Opt>,
   // Number of options added. Needed for print_help
   nb_opt: uint,
 }
@@ -267,7 +267,11 @@ impl LocalContext {
         (Left(Some(opt)), name) => opt.validate(name, rargs, residual_args),
         (Right(Some(cmd)), name) => cmd.validate(name, rargs, residual_args),
       } {
-        Err(msg) => return Err(msg),
+        Err(msg) => if residual_args.len() != 0 {
+          return Err(format!("Unexpected argument : {:s}.", residual_args.shift()));
+        } else {
+          return Err(msg);
+        },
         Ok(_) => {}
       }
     }
@@ -366,13 +370,15 @@ impl Context {
   /// an option with the same name was already added.
   pub fn add_command<'a>(&'a mut self, name: &'static str,
                      description: &'static str)
-                     -> Result<&'a Cmd, &'static str> {
+                     -> Result<&'a mut Cmd, &'static str> {
 
     if !self.commands.insert(name, Cmd::new(description)) {
       return Err("This command was already added");
     }
 
-    Ok(self.commands.get(&name)) // Can't fail, it's just been inserted.
+    // Is there a better way to get a mut ref to the value we've just
+    // inserted, without doing a lookup ?
+    Ok(self.commands.get_mut(&name))
   }
 
   /// Validate the input arguments against the options specified via add_option().
@@ -446,6 +452,14 @@ impl Context {
       Some(value) => println(value),
       None => print("\n")
     }
+  }
+}
+
+impl OptGroup for Cmd {
+  fn add_option(&mut self, lname: Option<&'static str>,
+                sname: Option<char>, description: Option<&'static str>,
+                flags: uint) -> Result<Opt, &'static str> {
+    self.inner_ctx.add_option(lname, sname, description, flags)
   }
 }
 

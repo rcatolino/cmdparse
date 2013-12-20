@@ -328,7 +328,7 @@ fn test_check_result_single_value_before_validate() {
   let mut ctx = Context::new("test [option] [argument]", args);
   let a_opt = ctx.add_option(None, Some('a'), None, Flags::TakesArg).unwrap();
   match a_opt.take_value::<~str>() {
-    Left(Some(value)) => assert!(false),
+    Left(Some(_)) => assert!(false),
     Left(None) => assert!(false),
     Right(passed) => assert!(!passed),
   }
@@ -491,16 +491,99 @@ fn test_check_result_no_value_unique2() {
 fn test_add_command_valid() {
   let mut ctx = Context::new("test [option] command [argument]", ~[~"test"]);
   // Those are valid options:
-  let mut cmd = ctx.add_command("command", "description").unwrap();
+  ctx.add_command("command", "description").unwrap();
 }
 
 #[test]
 fn test_add_command_invalid_same_name() {
   let mut ctx = Context::new("test [option] command [argument]", ~[~"test"]);
+  ctx.add_command("command", "description").unwrap();
+  ctx.add_command("command", "description2").unwrap_err();
+}
+
+// Tests with commands and options.
+#[test]
+fn test_add_command_option() {
+  let mut ctx = Context::new("test [option] command [command-options] [argument]", ~[~"test"]);
+  // Those are valid options:
+  ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+  ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap_err();
   {
-  let cmd1 = ctx.add_command("command", "description").unwrap();
+    let cmd = ctx.add_command("command", "description").unwrap();
+    cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap();
+    cmd.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+    cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap_err();
   }
   {
-  let cmd2 = ctx.add_command("command", "description2").unwrap_err();
+    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap();
+    cmd2.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+    cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap_err();
+  }
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+}
+
+#[test]
+fn test_command_invalid_command_option() {
+  let args = ~[~"test", ~"-a", ~"command2", ~"-a"];
+  let mut ctx = Context::new("test [option] command [command-options]", args);
+  // Those are valid options:
+  ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+  ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
+  {
+    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
+    cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
+  };
+  match ctx.validate() {
+    Err(msg) => ctx.print_help(Some(msg.as_slice())),
+    Ok(()) => assert!(false)
   }
 }
+
+#[test]
+fn test_command_invalid_command() {
+  let args = ~[~"test", ~"-a", ~"command", ~"-b"];
+  let mut ctx = Context::new("test [option] command [command-options]", args);
+  // Those are valid options:
+  ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+  ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
+  {
+    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
+    cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
+  };
+  match ctx.validate() {
+    Err(msg) => ctx.print_help(Some(msg.as_slice())),
+    Ok(()) => assert!(false)
+  }
+}
+
+#[test]
+fn test_command_option_check_results() {
+  let args = ~[~"test", ~"-a", ~"command2", ~"-b"];
+  let mut ctx = Context::new("test [option] command [command-options]", args);
+  // Those are valid options:
+  let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
+  let u_opt = ctx.add_option(None, Some('u'), None, Flags::Defaults).unwrap();
+  let (cmd_a_opt, cmd_b_opt) = {
+    let cmd = ctx.add_command("command", "description").unwrap();
+    (cmd.add_option(None, Some('a'), None, Flags::Defaults).unwrap(),
+    cmd.add_option(None, Some('b'), None, Flags::Defaults).unwrap())
+  };
+
+  let (cmd2_b_opt, cmd2_c_opt) = {
+    let cmd2 = ctx.add_command("command2", "description").unwrap();
+    (cmd2.add_option(None, Some('b'), None, Flags::Defaults).unwrap(),
+    cmd2.add_option(None, Some('c'), None, Flags::Defaults).unwrap())
+  };
+  ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
+
+  assert!(a_opt.check());
+  assert!(!u_opt.check());
+  assert!(!cmd_a_opt.check());
+  assert!(!cmd_b_opt.check());
+  assert!(cmd2_b_opt.check());
+  assert!(!cmd2_c_opt.check());
+}
+
