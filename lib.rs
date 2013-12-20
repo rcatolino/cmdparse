@@ -1,4 +1,4 @@
-#[pkgid = "cmdparse"];
+#[crate_id = "cmdparse#1.0"];
 #[desc = "Library to parse simple command line options"];
 #[license = "MIT"];
 
