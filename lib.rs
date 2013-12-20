@@ -137,7 +137,7 @@ pub struct Cmd {
 }
 
 #[deriving(Clone)]
-pub struct CmdRes(Rc<RefCell<bool>>);
+struct CmdRes(Rc<RefCell<bool>>);
 
 #[deriving(Clone)]
 pub struct Opt {
@@ -148,7 +148,7 @@ pub struct Opt {
   priv result: Rc<RefCell<Res>>,
 }
 
-priv struct Res {
+struct Res {
   passed: uint,        // Number of time we've seen this option
   values: ~[~str],     // Arguments it's been given
 }
@@ -347,7 +347,7 @@ impl LocalContext {
       Some(name) => {
         // The alignment is used in print_help() to make sure the columns are
         // aligned.
-        self.alignment = std::cmp::max(self.alignment, name.len() + min_align);
+        self.alignment = ::std::cmp::max(self.alignment, name.len() + min_align);
         if !self.loptions.insert(name, opt.clone()) {
           return Err("An option with the same long name was already added");
         }

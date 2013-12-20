@@ -1,8 +1,8 @@
-extern mod cmdparse;
 
-use cmdparse::{Context,OptGroup,Flags};
+use lib::{Context,OptGroup,Flags};
 use std::str;
 
+mod lib;
 // Tests for the options creation
 #[test]
 fn test_add_option_valid() {
