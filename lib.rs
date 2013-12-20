@@ -22,15 +22,15 @@
   let mut ctx = Context::new("example [options]", os::args());
 
   // Then add the authorized options.
-  let help_opt = ctx.add_option(Some("help"), Some("h"), Some("Display this help"),
+  let help_opt = ctx.add_option(Some("help"), Some('h'), Some("Display this help"),
                                 Flags::Defaults).unwrap();
-  let o_opt = ctx.add_option(None, Some("l"), Some("Activate the option l"),
+  let o_opt = ctx.add_option(None, Some('l'), Some("Activate the option l"),
                              Flags::Defaults).unwrap();
   let l_opt = ctx.add_option(Some("option"), None, Some("Activate some option"),
                              Flags::Defaults).unwrap();
-  let a_opt = ctx.add_option(None, Some("a"), Some("Activate the option a"),
+  let a_opt = ctx.add_option(None, Some('a'), Some("Activate the option a"),
                              Flags::TakesOptionalArg).unwrap();
-  let m_opt = ctx.add_option(None, Some("m"), Some("Activate the option m"),
+  let m_opt = ctx.add_option(None, Some('m'), Some("Activate the option m"),
                              Flags::TakesArg).unwrap();
   // add_option() can only return None if the option was specified in
   // a way that makes no sense, eg no long name and no short name.
@@ -47,12 +47,12 @@
   }
 
   // Do stuff with the results
-  if ctx.check(help_opt) {
+  if help_opt.check() {
     ctx.print_help(None);
     return;
   }
 
-  let a_value = match ctx.take_value(a_opt) {
+  let a_value = match a_opt.take_value() {
     Left(Some(some_int)) => println!("a : {:d}", some_int),
     Left(None) => println("a : the argument should be an int!!!"),
     Right(passed) => if passed {
