@@ -238,8 +238,8 @@ struct LocalContext {
   // Maps of locally valid options short/long.
   loptions: HashMap<&'static str, Opt>,
   soptions: HashMap<char, Opt>,
-  // Number of options added. Needed for print_help
-  nb_opt: uint,
+  // List of options added. Needed for print_help
+  print_options: ~[Opt],
 }
 
 impl LocalContext {
@@ -249,7 +249,7 @@ impl LocalContext {
       description: description,
       loptions: HashMap::new(),
       soptions: HashMap::new(),
-      nb_opt: 0,
+      print_options: ~[],
     }
   }
 
@@ -307,6 +307,9 @@ impl OptGroup for LocalContext {
       None => {}
     }
 
+    if !opt.has_flag(Flags::Hidden) {
+      self.print_options.push(opt.clone());
+    }
     Ok(opt)
   }
 }
@@ -394,19 +397,14 @@ impl Context {
   }
 
   pub fn print_help(&self, msg: Option<&str>) {
-    let mut printed: ~[bool] = ~[];
-    printed.grow_fn(self.inner_ctx.nb_opt, |_| false);
     match msg {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
     print("Usage: \n  ");
     println(self.inner_ctx.description);
     println("Valid options :");
-    for opt in self.inner_ctx.soptions.iter().map(|(_, a)| a)/*.
-      chain(self.inner_ctx.loptions.iter().map(|(_,a)| a))*/ {
-      if !opt.has_flag(Flags::Hidden) {
-        self.print_opt(opt)
-      }
+    for opt in self.inner_ctx.print_options.iter() {
+      self.print_opt(opt);
     }
   }
 
