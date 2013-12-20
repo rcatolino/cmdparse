@@ -20,19 +20,21 @@
 
   ```rust
   // First create the context with the program summary and the input arguments :
-  let mut ctx = Context::new("example [options]", os::args());
+  let mut ctx = Context::new("cmdparse [options]", os::args());
 
   // Then add the authorized options.
-  let help_opt = ctx.add_option(Some("help"), Some('h'), Some("Display this help"),
-                                Flags::Defaults).unwrap();
-  let o_opt = ctx.add_option(None, Some('l'), Some("Activate the option l"),
-                             Flags::Defaults).unwrap();
-  let l_opt = ctx.add_option(Some("option"), None, Some("Activate some option"),
-                             Flags::Defaults).unwrap();
+  // Use the convenience wrappers :
+  let help_opt = ctx.add_opt("help", 'h', "Display this help");
+  let o_opt = ctx.add_sopt('l', "Activate the option l");
+  let l_opt = ctx.add_lopt("option", "Activate some option");
+
+  // Use the full add_option function :
   let a_opt = ctx.add_option(None, Some('a'), Some("Activate the option a"),
                              Flags::TakesOptionalArg).unwrap();
   let m_opt = ctx.add_option(None, Some('m'), Some("Activate the option m"),
                              Flags::TakesArg).unwrap();
+  let m_opt = ctx.add_option(Some("long"), None, Some("Activate the option n"),
+                             Flags::TakesOptionalArg).unwrap();
   // add_option() can only return None if the option was specified in
   // a way that makes no sense, eg no long name and no short name.
   // You probably want to fail in this case, hence the unwrap().
@@ -53,7 +55,7 @@
     return;
   }
 
-  let a_value = match a_opt.take_value() {
+  match a_opt.take_value::<int>() {
     Left(Some(some_int)) => println!("a : {:d}", some_int),
     Left(None) => println("a : the argument should be an int!!!"),
     Right(passed) => if passed {
