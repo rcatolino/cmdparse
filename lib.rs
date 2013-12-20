@@ -74,6 +74,7 @@
 // value : kind argument that is anonymous and has a value.
 //         Can only be last or followed by other values.
 
+use std::cast::transmute;
 use std::cell::{RefCell};
 use std::hashmap::HashMap;
 use std::result::Result;
@@ -272,7 +273,11 @@ impl LocalContext {
       match match match raw_arg {
         Short(sname) => (Left(self.soptions.find(&sname)), sname.to_str()),
         Long(lname) => (Left(self.loptions.find_equiv(&lname.as_slice())), lname),
-        Neither(nname) => (Right(cmds.find_mut_equiv(&nname.as_slice())), nname),
+        Neither(nname) => (Right(unsafe {
+          // FIXME: replace transmute with find_mut_equiv or 
+          // equivalent once it is added to libstd
+          cmds.find_mut(&transmute(nname.as_slice()))
+        }), nname),
       } {
         (Left(None), name) => Err(format!("Invalid option : {:s}.", name)),
         (Right(None), name) => { residual_args.push(name); Ok(()) }
