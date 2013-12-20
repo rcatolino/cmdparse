@@ -436,19 +436,19 @@ impl Opt {
   }
 
   /// Returns the value attached with the given option. (ie --option=value).
-  /// If the value is cannot be parsed into a valid T, returns Left(None).
+  /// If the value is cannot be parsed into a valid T, returns Ok(None).
   /// If the option was given with no value returns Right(true),
   /// or Right(false) if the option wasn't given.
-  pub fn take_value<T: FromStr>(&self) -> Either<Option<T>, bool> {
+  pub fn take_value<T: FromStr>(&self) -> Result<Option<T>, bool> {
     let mut res = self.result.borrow().borrow_mut();
     let passed = res.get().passed;
     match res.get().values.shift_opt() {
       // Is there a way to avoid allocation of a new string when T: Str ?
-      Some(value) => Left(from_str(value)),
+      Some(value) => Ok(from_str(value)),
       None => if passed == 0 {
-        Right(false)
+        Err(false)
       } else {
-        Right(true)
+        Err(true)
       }
     }
   }
@@ -461,12 +461,12 @@ impl Opt {
 
   /// Variant of take_value() for when the option can receive several values.
   /// eg --output=file1 --output=pipe1
-  pub fn take_values<T: FromStr>(&self) -> Either<~[Option<T>], uint> {
+  pub fn take_values<T: FromStr>(&self) -> Result<~[Option<T>], uint> {
     let mut res = self.result.borrow().borrow_mut();
     if res.get().values.len() == 0 {
-      Right(res.get().passed)
+      Err(res.get().passed)
     } else {
-      Left(res.get().values.map(|value| from_str(*value)))
+      Ok(res.get().values.map(|value| from_str(*value)))
     }
   }
 }

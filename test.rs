@@ -122,9 +122,9 @@ fn test_check_result_grouped_value_valid() {
   assert!(h_opt.check() == true);
   assert!(i_opt.check() == false);
   match g_opt.take_value::<~str>() {
-    Left(Some(val)) => assert!(val == ~"value"),
-    Left(None) => assert!(false),
-    Right(_) => assert!(false),
+    Ok(Some(val)) => assert!(val == ~"value"),
+    Ok(None) => assert!(false),
+    Err(_) => assert!(false),
   }
 }
 
@@ -145,8 +145,8 @@ fn test_check_result_grouped_value_invalid() {
   assert!(h_opt.check() == true);
   assert!(i_opt.check() == false);
   match e_opt.take_value::<~str>() {
-    Left(_) => assert!(false),
-    Right(val) => assert!(val),
+    Ok(_) => assert!(false),
+    Err(val) => assert!(val),
   }
 }
 
@@ -162,11 +162,11 @@ fn test_check_result_long_option_values() {
   assert!(d_opt.check() == true);
   assert!(e_opt.check() == false);
   match g_opt.take_value::<~str>() {
-    Left(Some(value)) => assert!(value == ~"value1"),
+    Ok(Some(value)) => assert!(value == ~"value1"),
     _ => assert!(false)
   }
   match h_opt.take_value::<~str>() {
-    Left(Some(value)) => assert!(value == ~"value2"),
+    Ok(Some(value)) => assert!(value == ~"value2"),
     _ => assert!(false)
   }
 }
@@ -178,9 +178,9 @@ fn test_check_result_single_value_valid_int() {
   let e_opt = ctx.add_option(None, Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); 0}
-    Right(_) => {assert!(false); 0}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); 0}
+    Err(_) => {assert!(false); 0}
   };
   assert!(e_val == 33);
 }
@@ -192,9 +192,9 @@ fn test_check_result_single_value_valid_bool() {
   let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); false}
-    Right(_) => {assert!(false); false}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); false}
+    Err(_) => {assert!(false); false}
   };
   assert!(e_val == true);
 }
@@ -206,9 +206,9 @@ fn test_check_result_single_value_valid_str() {
   let e_opt = ctx.add_option(None, Some('s'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); ~"error"}
-    Right(_) => {assert!(false); ~"error"}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); ~"error"}
+    Err(_) => {assert!(false); ~"error"}
   };
   assert!(e_val == ~"value");
 }
@@ -220,14 +220,14 @@ fn test_check_result_take_value_multiple_str() {
   let e_opt = ctx.add_option(None, Some('s'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); ~"error"}
-    Right(_) => {assert!(false); ~"error"}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); ~"error"}
+    Err(_) => {assert!(false); ~"error"}
   };
   let e_val2 = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); ~"error"}
-    Right(_) => {assert!(false); ~"error"}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); ~"error"}
+    Err(_) => {assert!(false); ~"error"}
   };
 
   assert!(e_val == ~"value");
@@ -241,9 +241,9 @@ fn test_check_result_single_value_valid_float() {
   let e_opt = ctx.add_option(None, Some('f'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => value,
-    Left(None) => {assert!(false); 0f32}
-    Right(_) => {assert!(false); 0f32}
+    Ok(Some(value)) => value,
+    Ok(None) => {assert!(false); 0f32}
+    Err(_) => {assert!(false); 0f32}
   };
   assert!(e_val == 1.5);
 }
@@ -255,9 +255,9 @@ fn test_check_result_single_value_invalid_int() {
   let e_opt = ctx.add_option(None, Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => {assert!(false); value}
-    Left(None) => {0}
-    Right(_) => {assert!(false); 0}
+    Ok(Some(value)) => {assert!(false); value}
+    Ok(None) => {0}
+    Err(_) => {assert!(false); 0}
   };
   assert!(e_val == 0);
 }
@@ -269,9 +269,9 @@ fn test_check_result_single_value_invalid_bool() {
   let e_opt = ctx.add_option(None, Some('b'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => {assert!(false); value}
-    Left(None) => {false}
-    Right(_) => {assert!(false); false}
+    Ok(Some(value)) => {assert!(false); value}
+    Ok(None) => {false}
+    Err(_) => {assert!(false); false}
   };
   assert!(e_val == false);
 }
@@ -283,9 +283,9 @@ fn test_check_result_single_value_invalid_float() {
   let e_opt = ctx.add_option(None, Some('f'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => {assert!(false); value}
-    Left(None) => {0f32}
-    Right(_) => {assert!(false); 0f32}
+    Ok(Some(value)) => {assert!(false); value}
+    Ok(None) => {0f32}
+    Err(_) => {assert!(false); 0f32}
   };
   assert!(e_val == 0f32);
 }
@@ -298,9 +298,9 @@ fn test_check_result_single_value_unpassed1() {
   let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => {assert!(false); value}
-    Left(None) => {assert!(false); 0}
-    Right(passed) => {assert!(passed); 0}
+    Ok(Some(value)) => {assert!(false); value}
+    Ok(None) => {assert!(false); 0}
+    Err(passed) => {assert!(passed); 0}
   };
   assert!(e_val == 0);
   a_opt.check();
@@ -314,9 +314,9 @@ fn test_check_result_single_value_unpassed2() {
   let a_opt = ctx.add_option(None, Some('a'), None, Flags::Defaults).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   let e_val = match e_opt.take_value() {
-    Left(Some(value)) => {assert!(false); value}
-    Left(None) => {assert!(false); 0}
-    Right(passed) => {assert!(!passed); 0}
+    Ok(Some(value)) => {assert!(false); value}
+    Ok(None) => {assert!(false); 0}
+    Err(passed) => {assert!(!passed); 0}
   };
   assert!(e_val == 0);
   a_opt.check();
@@ -328,9 +328,9 @@ fn test_check_result_single_value_before_validate() {
   let mut ctx = Context::new("test [option] [argument]", args);
   let a_opt = ctx.add_option(None, Some('a'), None, Flags::TakesArg).unwrap();
   match a_opt.take_value::<~str>() {
-    Left(Some(_)) => assert!(false),
-    Left(None) => assert!(false),
-    Right(passed) => assert!(!passed),
+    Ok(Some(_)) => assert!(false),
+    Ok(None) => assert!(false),
+    Err(passed) => assert!(!passed),
   }
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
 }
@@ -342,12 +342,12 @@ fn test_check_result_multiple_values_int() {
   let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match e_opt.take_values::<int>() {
-    Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
+    Ok(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
       opt_val.or_else(|| { assert!(false); None})
     }).zip((~[33, 32, 31, 30]).move_iter()) {
       assert!(val == expected);
     },
-    Right(_) => assert!(false)
+    Err(_) => assert!(false)
   }
 }
 
@@ -358,11 +358,11 @@ fn test_check_result_multiple_values_int_invalid() {
   let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match e_opt.take_values::<int>() {
-    Left(values) => for (val, expected) in values.move_iter().
+    Ok(values) => for (val, expected) in values.move_iter().
       filter_map(|opt_val| opt_val).zip((~[33, 31, 30]).move_iter()) {
       assert!(val == expected);
     },
-    Right(_) => assert!(false)
+    Err(_) => assert!(false)
   }
 }
 
@@ -373,12 +373,12 @@ fn test_check_result_multiple_values_some() {
   let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match e_opt.take_values::<int>() {
-    Left(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
+    Ok(values) => for (val, expected) in values.move_iter().filter_map(|opt_val| {
       opt_val.or_else(|| { assert!(false); None})
     }).zip((~[33, 31, 30]).move_iter()) {
       assert!(val == expected);
     },
-    Right(_) => assert!(false)
+    Err(_) => assert!(false)
   }
 }
 
@@ -389,8 +389,8 @@ fn test_check_result_multiple_values_none() {
   let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match e_opt.take_values::<int>() {
-    Left(_) => assert!(false),
-    Right(nb) => assert!(nb == 0)
+    Ok(_) => assert!(false),
+    Err(nb) => assert!(nb == 0)
   }
 }
 
@@ -401,8 +401,8 @@ fn test_check_result_multiple_values_unpassed() {
   let e_opt = ctx.add_option(Some("int"), Some('i'), None, Flags::TakesOptionalArg).unwrap();
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
   match e_opt.take_values::<int>() {
-    Left(_) => assert!(false),
-    Right(nb) => assert!(nb == 2)
+    Ok(_) => assert!(false),
+    Err(nb) => assert!(nb == 2)
   }
 }
 
@@ -432,11 +432,11 @@ fn test_check_validation_valid_argument2() {
     assert!(str::eq_slice(*arg, expected));
   }
   match d_opt.take_value::<~str>() {
-    Left(val) => match val {
+    Ok(val) => match val {
       Some(val) => assert!(str::eq_slice(val, "validarg1")),
       None => assert!(false)
     },
-    Right(_) => assert!(false),
+    Err(_) => assert!(false),
   }
 }
 
@@ -647,7 +647,7 @@ fn test_command_option_with() {
   assert!(!cmd_d.check());
 
   match cmd_c.take_value::<~str>() {
-    Left(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
+    Ok(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
   }
 
   assert!(ctx.get_args().head() == &~"argument");
