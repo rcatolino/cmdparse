@@ -31,8 +31,6 @@
                              Flags::TakesOptionalArg).unwrap();
   let m_opt = ctx.add_option(None, Some('m'), Some("Activate the option m"),
                              Flags::TakesArg).unwrap();
-  let m_opt = ctx.add_option(Some("long"), None, Some("Activate the option n"),
-                             Flags::TakesOptionalArg).unwrap();
   // add_option() can only return None if the option was specified in
   // a way that makes no sense, eg no long name and no short name.
   // You probably want to fail in this case, hence the unwrap().
@@ -63,6 +61,10 @@
     }
   };
 
+  // Do stuff with the value of m_opt, or with a default if the option wasn't given.
+  let m_res = m_opt.value_or(&ctx, Path::new("/tmp/stuff"));
+  let abs_path = os::make_absolute(&m_res);
+  println!("m_res : {}", abs_path.display());
   // etc.
   ```
 
