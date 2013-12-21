@@ -1,8 +1,7 @@
 #[cfg(test)]
-use lib::{Context,OptGroup,Flags};
+extern mod cmdparse;
+use cmdparse::{Context,OptGroup,Flags};
 use std::str;
-
-mod lib;
 
 // Tests for the options creation
 #[test]

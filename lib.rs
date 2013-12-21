@@ -140,7 +140,7 @@ pub struct Cmd {
 }
 
 #[deriving(Clone)]
-struct CmdRes(Rc<RefCell<bool>>);
+pub struct CmdRes(Rc<RefCell<bool>>);
 
 #[deriving(Clone)]
 pub struct Opt {
