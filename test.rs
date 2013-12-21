@@ -675,10 +675,12 @@ fn test_command_option_with() {
   let c_opt = ctx.add_sopt('c', "Option c");
 
   // Those are valid commands:
-  let (cmd_res, (cmd_b, cmd_c, cmd_d)) = ctx.add_cmd_with("command", "description", |cmd| {
+  let (cmd_res, (cmd_b, cmd_c, cmd_d, cmd_f)) =
+    ctx.add_cmd_with("command", "description", |cmd| {
     (cmd.add_sopt('b', "Cmd option b"),
     cmd.add_option(None, Some('c'), Some("Cmd option c"), Flags::TakesArg).unwrap(),
-    cmd.add_sopt('d', "Cmd option d"))
+    cmd.add_sopt('d', "Cmd option d"),
+    cmd.add_opt("fopt", 'f', "Cmd option f"))
   });
 
   ctx.validate().map_err(|msg| { ctx.print_help(Some(msg.as_slice())); assert!(false);});
@@ -690,6 +692,7 @@ fn test_command_option_with() {
   assert!(cmd_res.check());
   assert!(cmd_b.check());
   assert!(!cmd_d.check());
+  assert!(!cmd_f.check());
 
   match cmd_c.take_value::<~str>() {
     Ok(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
