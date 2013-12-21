@@ -233,11 +233,26 @@ impl Context {
     match msg {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
+
     print("Usage: \n  ");
     println(self.inner_ctx.description);
-    println("Valid options :");
+    println("\nValid global options :");
     for opt in self.inner_ctx.print_options.iter() {
       self.print_opt(opt);
+    }
+
+    if self.commands.len() > 0 {
+      println("\nValid commands :");
+    }
+
+    for (name, cmd) in self.commands.iter() {
+      println!("\n  {:s}    {:s}", *name, cmd.inner_ctx.description);
+      if cmd.inner_ctx.print_options.len() > 0 {
+        println!("Valid options for {:s} :", *name);
+        for opt in cmd.inner_ctx.print_options.iter() {
+          self.print_opt(opt);
+        }
+      }
     }
   }
 
