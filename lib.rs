@@ -87,23 +87,39 @@ pub mod Flags {
 }
 
 pub trait OptGroup {
+  fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext;
+
   /// Specify valid options for your program. Return Err() if
   /// the option has neither short nor long name or if an option
   /// with the same name was already added.
   fn add_option(&mut self, lname: Option<&'static str>,
                 sname: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Opt, &'static str>;
+                flags: uint) -> Result<Opt, &'static str> {
+    self.get_inner().add_option(lname, sname, description, flags)
+  }
+
   /// Helper function to add a long option with Flags::Default.
   /// Fails if an option with the same name already exists.
-  fn add_lopt(&mut self, name: &'static str, description: &'static str) -> Opt;
+  fn add_lopt(&mut self, name: &'static str, description: &'static str) -> Opt {
+    self.get_inner().add_option(Some(name), None, Some(description),
+                              Flags::Defaults).unwrap()
+  }
+
   /// Helper function to add a short option with Flags::Default.
   /// Fails if an option with the same name already exists.
-  fn add_sopt(&mut self, name: char, description: &'static str) -> Opt;
+  fn add_sopt(&mut self, name: char, description: &'static str) -> Opt {
+    self.get_inner().add_option(None, Some(name), Some(description),
+                              Flags::Defaults).unwrap()
+  }
+
   /// Helper function to add an option, which has both a long and a short name,
   /// with Flags::Default.
   /// Fails if an option with the same names already exists.
   fn add_opt(&mut self, lname: &'static str, sname: char,
-             description: &'static str) -> Opt;
+             description: &'static str) -> Opt {
+    self.get_inner().add_option(Some(lname), Some(sname), Some(description),
+                              Flags::Defaults).unwrap()
+  }
 }
 
 pub struct Context {
@@ -521,51 +537,14 @@ impl CmdRes {
   }
 }
 
-// Hopefully all the deduplication in here can be avoided once trait inheritance works
 impl OptGroup for Cmd {
-  fn add_option(&mut self, lname: Option<&'static str>,
-                sname: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Opt, &'static str> {
-    self.inner_ctx.add_option(lname, sname, description, flags)
-  }
-
-  fn add_lopt(&mut self, name: &'static str, description: &'static str) -> Opt {
-    self.inner_ctx.add_option(Some(name), None, Some(description),
-                              Flags::Defaults).unwrap()
-  }
-
-  fn add_sopt(&mut self, name: char, description: &'static str) -> Opt {
-    self.inner_ctx.add_option(None, Some(name), Some(description),
-                              Flags::Defaults).unwrap()
-  }
-
-  fn add_opt(&mut self, lname: &'static str, sname: char,
-             description: &'static str) -> Opt {
-    self.inner_ctx.add_option(Some(lname), Some(sname), Some(description),
-                              Flags::Defaults).unwrap()
+  fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext {
+    &mut self.inner_ctx
   }
 }
 
 impl OptGroup for Context {
-  fn add_option(&mut self, lname: Option<&'static str>,
-                sname: Option<char>, description: Option<&'static str>,
-                flags: uint) -> Result<Opt, &'static str> {
-    self.inner_ctx.add_option(lname, sname, description, flags)
-  }
-
-  fn add_lopt(&mut self, name: &'static str, description: &'static str) -> Opt {
-    self.inner_ctx.add_option(Some(name), None, Some(description),
-                              Flags::Defaults).unwrap()
-  }
-
-  fn add_sopt(&mut self, name: char, description: &'static str) -> Opt {
-    self.inner_ctx.add_option(None, Some(name), Some(description),
-                              Flags::Defaults).unwrap()
-  }
-
-  fn add_opt(&mut self, lname: &'static str, sname: char,
-             description: &'static str) -> Opt {
-    self.inner_ctx.add_option(Some(lname), Some(sname), Some(description),
-                              Flags::Defaults).unwrap()
+  fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext {
+    &mut self.inner_ctx
   }
 }
