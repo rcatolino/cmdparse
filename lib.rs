@@ -252,67 +252,24 @@ impl Context {
 
     print("Usage: \n  ");
     println(self.inner_ctx.description);
-    println("\nValid global options :");
-    for opt in self.inner_ctx.print_options.iter() {
-      self.print_opt(opt);
+    if self.inner_ctx.print_options.len() > 0 {
+      println("\nValid global options :");
+      for opt in self.inner_ctx.print_options.iter() {
+        self.inner_ctx.print_opt(opt);
+      }
     }
 
     if self.commands.len() > 0 {
       println("\nValid commands :");
-    }
-
-    for (name, cmd) in self.commands.iter() {
-      println!("\n  {:s}    {:s}", *name, cmd.inner_ctx.description);
-      if cmd.inner_ctx.print_options.len() > 0 {
-        println!("Valid options for {:s} :", *name);
-        for opt in cmd.inner_ctx.print_options.iter() {
-          self.print_opt(opt);
-        }
-      }
-    }
-  }
-
-  fn print_opt(&self, opt: &Opt) {
-    // Not using tabs cause they mess with the alignment
-    print("  ");
-    // Print until the long option
-    let mut align = self.inner_ctx.alignment;
-    match opt.short_name {
-      Some(name) => {
-        print!("-{:s}", name.to_str());
-        if opt.long_name.is_none() {
-          if opt.has_flag(Flags::TakesOptionalArg) {
-            print!(" [argument]");
-            align -= 11;
-          } else if opt.has_flag(Flags::TakesArg) {
-            print!(" argument");
-            align -= 9;
+      for (name, cmd) in self.commands.iter() {
+        println!("\n  {:s}    {:s}", *name, cmd.inner_ctx.description);
+        if cmd.inner_ctx.print_options.len() > 0 {
+          println!("Valid options for {:s} :", *name);
+          for opt in cmd.inner_ctx.print_options.iter() {
+            cmd.inner_ctx.print_opt(opt);
           }
         }
-        print(",     ");
       }
-      None => print("        ")
-    }
-    // Print until the description
-    match opt.long_name {
-      Some(value) => {
-        align -= value.len()+2;
-        print!("--{:s}", value);
-        if opt.has_flag(Flags::TakesOptionalArg) {
-          print!("[=argument]");
-          align -= 11;
-        } else if opt.has_flag(Flags::TakesArg) {
-          print!("=argument");
-          align -= 9;
-        }
-      }
-      None => {}
-    }
-    print!("{:s}  ", " ".repeat(align));
-    // Print until the end
-    match opt.description {
-      Some(value) => println(value),
-      None => print("\n")
     }
   }
 }
@@ -379,8 +336,7 @@ impl LocalContext {
                        Rc::from_mut(RefCell::new(Res { passed:0, values: ~[] })));
     match long_name {
       Some(name) => {
-        // The alignment is used in print_help() to make sure the columns are
-        // aligned.
+        // The alignment is used in print_help() to make sure the columns are aligned.
         self.alignment = ::std::cmp::max(self.alignment, name.len() + min_align);
         if !self.loptions.insert(name, opt.clone()) {
           return Err("An option with the same long name was already added");
@@ -402,6 +358,50 @@ impl LocalContext {
       self.print_options.push(opt.clone());
     }
     Ok(opt)
+  }
+
+  fn print_opt(&self, opt: &Opt) {
+    // Not using tabs cause they mess with the alignment
+    print("  ");
+    // Print until the long option
+    let mut align = self.alignment;
+    match opt.short_name {
+      Some(name) => {
+        print!("-{:s}", name.to_str());
+        if opt.long_name.is_none() {
+          if opt.has_flag(Flags::TakesOptionalArg) {
+            print!(" [argument]");
+            align -= 11;
+          } else if opt.has_flag(Flags::TakesArg) {
+            print!(" argument");
+            align -= 9;
+          }
+        }
+        print(",     ");
+      }
+      None => print("        ")
+    }
+    // Print until the description
+    match opt.long_name {
+      Some(value) => {
+        align -= value.len();
+        print!("--{:s}", value);
+        if opt.has_flag(Flags::TakesOptionalArg) {
+          print!("[=argument]");
+          align -= 11;
+        } else if opt.has_flag(Flags::TakesArg) {
+          print!("=argument");
+          align -= 9;
+        }
+      }
+      None => {}
+    }
+    print!("{:s}  ", " ".repeat(align));
+    // Print until the end
+    match opt.description {
+      Some(value) => println(value),
+      None => print("\n")
+    }
   }
 }
 
