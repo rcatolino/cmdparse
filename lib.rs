@@ -241,8 +241,8 @@ impl Context {
   }
 
   /// Get an array containing the residual arguments.
-  pub fn get_args<'a>(&'a self) -> &'a[~str] {
-    self.residual_args.as_slice()
+  pub fn get_args<'a>(&'a mut self) -> &'a mut ~[~str] {
+    &mut self.residual_args
   }
 
   pub fn print_help(&self, msg: Option<&str>) {
