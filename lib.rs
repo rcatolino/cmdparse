@@ -255,19 +255,20 @@ impl Context {
     if self.inner_ctx.print_options.len() > 0 {
       println("\nValid global options :");
       for opt in self.inner_ctx.print_options.iter() {
-        self.inner_ctx.print_opt(opt);
+        self.inner_ctx.print_opt(opt, "  ");
       }
     }
 
     if self.commands.len() > 0 {
       println("\nValid commands :");
       for (name, cmd) in self.commands.iter() {
-        println!("\n  {:s}    {:s}", *name, cmd.inner_ctx.description);
+        println!("  {:s}    {:s}", *name, cmd.inner_ctx.description);
         if cmd.inner_ctx.print_options.len() > 0 {
-          println!("Valid options for {:s} :", *name);
+          println!("    Valid options for {:s} :", *name);
           for opt in cmd.inner_ctx.print_options.iter() {
-            cmd.inner_ctx.print_opt(opt);
+            cmd.inner_ctx.print_opt(opt, "    ");
           }
+          print("\n");
         }
       }
     }
@@ -365,9 +366,9 @@ impl LocalContext {
     Ok(opt)
   }
 
-  fn print_opt(&self, opt: &Opt) {
+  fn print_opt(&self, opt: &Opt, tab: &str) {
     // Not using tabs cause they mess with the alignment
-    print("  ");
+    print(tab);
     // Print until the long option
     let mut align = self.alignment;
     match opt.short_name {
