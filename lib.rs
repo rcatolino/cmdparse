@@ -52,9 +52,9 @@
   }
 
   match a_opt.take_value::<int>() {
-    Left(Some(some_int)) => println!("a : {:d}", some_int),
-    Left(None) => println("a : the argument should be an int!!!"),
-    Right(passed) => if passed {
+    Ok(Some(some_int)) => println!("a : {:d}", some_int),
+    Ok(None) => println("a : the argument should be an int!!!"),
+    Err(passed) => if passed {
       println("the option 'a' was passed without an argument.");
     } else {
       println("the option 'a' was not passed.");
@@ -288,6 +288,11 @@ impl RawArg {
   }
 }
 
+enum IsOpt<T, E> {
+  O(T),
+  NotO(E),
+}
+
 impl LocalContext {
   pub fn new(description: &'static str) -> LocalContext {
     LocalContext {
@@ -304,18 +309,18 @@ impl LocalContext {
     while rargs.len() > 0 {
       let raw_arg = rargs.shift(); // Can't fail since len() > 0;
       match match match raw_arg {
-        Short(sname) => (Left(self.soptions.find(&sname)), sname.to_str()),
-        Long(lname) => (Left(self.loptions.find_equiv(&lname.as_slice())), lname),
-        Neither(nname) => (Right(unsafe {
+        Short(sname) => (O(self.soptions.find(&sname)), sname.to_str()),
+        Long(lname) => (O(self.loptions.find_equiv(&lname.as_slice())), lname),
+        Neither(nname) => (NotO(unsafe {
           // FIXME: replace transmute with find_mut_equiv or
           // equivalent once it is added to libstd
           cmds.find_mut(&transmute(nname.as_slice()))
         }), nname),
       } {
-        (Left(None), name) => Err(format!("Invalid option : {:s}.", name)),
-        (Right(None), name) => { residual_args.push(name); Ok(()) }
-        (Left(Some(opt)), name) => opt.validate(name, rargs, residual_args),
-        (Right(Some(cmd)), name) => cmd.validate(name, rargs, residual_args),
+        (O(None), name) => Err(format!("Invalid option : {:s}.", name)),
+        (NotO(None), name) => { residual_args.push(name); Ok(()) }
+        (O(Some(opt)), name) => opt.validate(name, rargs, residual_args),
+        (NotO(Some(cmd)), name) => cmd.validate(name, rargs, residual_args),
       } {
         Err(msg) => if residual_args.len() != 0 {
           return Err(format!("Unexpected argument : {:s}.", residual_args.shift()));
