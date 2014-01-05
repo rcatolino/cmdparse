@@ -533,13 +533,21 @@ impl Opt {
 
 impl CmdRes {
   pub fn check(&self) -> bool {
-    let res = (*self).borrow().borrow();
-    *res.get()
+    match (*self) {
+      CmdRes(ref res) => {
+        let tmp = res.borrow().borrow();
+        *tmp.get()
+      }
+    }
   }
 
   fn set(&self) {
-    let mut res = (*self).borrow().borrow_mut();
-    *res.get() = true;
+    match (*self) {
+      CmdRes(ref res) => {
+        let mut tmp = res.borrow().borrow_mut();
+        *tmp.get() = true;
+      }
+    }
   }
 }
 
