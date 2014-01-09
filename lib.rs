@@ -456,7 +456,7 @@ impl Opt {
     } else if res.get().passed > 1 && self.has_flag(Flags::Unique) {
       return Err(format!("The option : {:s} was given more than once", opt_name));
     } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
-      if rargs.head_opt().map_default(false, |narg| !narg.option()) {
+      if rargs.head_opt().map_or(false, |narg| !narg.option()) {
         Some(rargs.shift().value())
       } else if self.has_flag(Flags::TakesArg) {
         return Err(format!("Missing argument for option : {:s}", opt_name));
