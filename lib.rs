@@ -53,11 +53,11 @@
 
   match a_opt.take_value::<int>() {
     Ok(Some(some_int)) => println!("a : {:d}", some_int),
-    Ok(None) => println("a : the argument should be an int!!!"),
+    Ok(None) => println!("a : the argument should be an int!!"),
     Err(passed) => if passed {
-      println("the option 'a' was passed without an argument.");
+      println!("the option 'a' was passed without an argument.");
     } else {
-      println("the option 'a' was not passed.");
+      println!("the option 'a' was not passed.");
     }
   };
 
@@ -250,17 +250,17 @@ impl Context {
       Some(err) => println!("Error : {:s}", err), None => {}
     }
 
-    print("Usage: \n  ");
-    println(self.inner_ctx.description);
+    print!("Usage: \n  ");
+    println!("{}", self.inner_ctx.description);
     if self.inner_ctx.print_options.len() > 0 {
-      println("\nValid global options :");
+      println!("\nValid global options :");
       for opt in self.inner_ctx.print_options.iter() {
         self.inner_ctx.print_opt(opt, "  ");
       }
     }
 
     if self.commands.len() > 0 {
-      println("\nValid commands :");
+      println!("\nValid commands :");
       for (name, cmd) in self.commands.iter() {
         println!("  {:s}    {:s}", *name, cmd.inner_ctx.description);
         if cmd.inner_ctx.print_options.len() > 0 {
@@ -268,7 +268,7 @@ impl Context {
           for opt in cmd.inner_ctx.print_options.iter() {
             cmd.inner_ctx.print_opt(opt, "    ");
           }
-          print("\n");
+          print!("\n");
         }
       }
     }
@@ -339,7 +339,7 @@ impl LocalContext {
                 flags: uint) -> Result<Opt, &'static str> {
 
     let opt = Opt::new(long_name, short_name, description, flags,
-                       Rc::from_mut(RefCell::new(Res { passed:0, values: ~[] })));
+                       Rc::new(RefCell::new(Res { passed:0, values: ~[] })));
     match long_name {
       Some(name) => {
         // The alignment is used in print_help() to make sure the columns are aligned.
@@ -368,8 +368,8 @@ impl LocalContext {
 
   fn print_opt(&self, opt: &Opt, tab: &str) {
     // Not using tabs cause they mess with the alignment
-    print(tab);
-    // Print until the long option
+    print!("{}", tab);
+    // print! until the long option
     let mut align = self.alignment;
     match opt.short_name {
       Some(name) => {
@@ -383,11 +383,11 @@ impl LocalContext {
             align -= 9;
           }
         }
-        print(",     ");
+        print!(",     ");
       }
-      None => print("        ")
+      None => print!("        ")
     }
-    // Print until the description
+    // print! until the description
     match opt.long_name {
       Some(value) => {
         align -= value.len();
@@ -403,10 +403,10 @@ impl LocalContext {
       None => {}
     }
     print!("{:s}  ", " ".repeat(align));
-    // Print until the end
+    // print! until the end
     match opt.description {
-      Some(value) => println(value),
-      None => print("\n")
+      Some(value) => println!("{}", value),
+      None => print!("\n")
     }
   }
 }
@@ -414,7 +414,7 @@ impl LocalContext {
 impl Cmd {
   fn new(description: &'static str) -> Cmd {
     Cmd { inner_ctx: LocalContext::new(description),
-          result: CmdRes(Rc::from_mut(RefCell::new(false))) }
+          result: CmdRes(Rc::new(RefCell::new(false))) }
   }
 
   fn validate(&mut self, cmd_name: ~str, rargs: &mut ~[RawArg],
@@ -476,7 +476,7 @@ impl Opt {
   }
 
   /// Return the value passed with the given option, or a default if
-  /// there was no value. Print a error message and the help if the value
+  /// there was no value. print! a error message and the help if the value
   /// was of an invalid type.
   pub fn value_or<T: FromStr>(&self, ctx: &Context, default: T) -> T {
     let mut res = self.result.borrow().borrow_mut();
