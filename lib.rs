@@ -308,7 +308,7 @@ impl LocalContext {
   fn parse(&mut self, cmds: &mut HashMap<&'static str, Cmd>,
            rargs: &mut ~[RawArg], residual_args: &mut ~[~str]) -> Result<(), ~str> {
     while rargs.len() > 0 {
-      let raw_arg = rargs.shift(); // Can't fail since len() > 0;
+      let raw_arg = rargs.shift().unwrap(); // Can't fail since len() > 0;
       match match match raw_arg {
         Short(sname) => (O(self.soptions.find(&sname)), sname.to_str()),
         Long(lname) => (O(self.loptions.find_equiv(&lname.as_slice())), lname),
@@ -324,7 +324,7 @@ impl LocalContext {
         (NotO(Some(cmd)), name) => cmd.validate(name, rargs, residual_args),
       } {
         Err(msg) => if residual_args.len() != 0 {
-          return Err(format!("Unexpected argument : {:s}.", residual_args.shift()));
+          return Err(format!("Unexpected argument : {:s}.", residual_args.shift().unwrap()));
         } else {
           return Err(msg);
         },
@@ -421,7 +421,7 @@ impl Cmd {
               residual_args: &mut ~[~str]) -> Result<(), ~str> {
     // First check that the command has only been given once
     if residual_args.len() != 0 {
-      Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
+      Err(format!("Unexpected argument : {:s}.", residual_args.shift().unwrap()))
     } else if self.result.check() {
       Err(format!("Unexpected command : {:s}", cmd_name))
     } else {
@@ -452,12 +452,12 @@ impl Opt {
     let mut res = self.result.borrow().borrow_mut();
     res.get().passed += 1;
     if residual_args.len() != 0 {
-      return Err(format!("Unexpected argument : {:s}.", residual_args.shift()))
+      return Err(format!("Unexpected argument : {:s}.", residual_args.shift().unwrap()))
     } else if res.get().passed > 1 && self.has_flag(Flags::Unique) {
       return Err(format!("The option : {:s} was given more than once", opt_name));
     } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
-      if rargs.head_opt().map_or(false, |narg| !narg.option()) {
-        Some(rargs.shift().value())
+      if rargs.head().map_or(false, |narg| !narg.option()) {
+        Some(rargs.shift().unwrap().value())
       } else if self.has_flag(Flags::TakesArg) {
         return Err(format!("Missing argument for option : {:s}", opt_name));
       } else {
@@ -480,7 +480,7 @@ impl Opt {
   /// was of an invalid type.
   pub fn value_or<T: FromStr>(&self, ctx: &Context, default: T) -> T {
     let mut res = self.result.borrow().borrow_mut();
-    match res.get().values.head_opt() {
+    match res.get().values.head() {
       Some(value) => match from_str(*value) {
         Some(tvalue) => tvalue,
         None => {
@@ -502,7 +502,7 @@ impl Opt {
   pub fn take_value<T: FromStr>(&self) -> Result<Option<T>, bool> {
     let mut res = self.result.borrow().borrow_mut();
     let passed = res.get().passed;
-    match res.get().values.shift_opt() {
+    match res.get().values.shift() {
       // Is there a way to avoid allocation of a new string when T: Str ?
       Some(value) => Ok(from_str(value)),
       None => if passed == 0 {
@@ -533,7 +533,7 @@ impl Opt {
 
 impl CmdRes {
   pub fn check(&self) -> bool {
-    match (*self) {
+    match *self {
       CmdRes(ref res) => {
         let tmp = res.borrow().borrow();
         *tmp.get()
@@ -542,7 +542,7 @@ impl CmdRes {
   }
 
   fn set(&self) {
-    match (*self) {
+    match *self {
       CmdRes(ref res) => {
         let mut tmp = res.borrow().borrow_mut();
         *tmp.get() = true;

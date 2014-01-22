@@ -698,5 +698,5 @@ fn test_command_option_with() {
     Ok(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
   }
 
-  assert!(ctx.get_args().head() == &~"argument");
+  assert!(ctx.get_args().head().unwrap() == &~"argument");
 }
