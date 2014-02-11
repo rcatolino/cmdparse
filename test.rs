@@ -1,4 +1,5 @@
-#[cfg(test)]
+#[allow(unused_must_use)];
+#[cfg(test)];
 extern mod cmdparse;
 use cmdparse::{Context,OptGroup,Flags};
 use std::str;
