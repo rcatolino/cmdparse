@@ -75,6 +75,7 @@ extern crate collections;
 use collections::hashmap::HashMap;
 use std::cast::transmute;
 use std::cell::RefCell;
+use std::from_str::FromStr;
 use std::result::Result;
 use std::rc::Rc;
 
