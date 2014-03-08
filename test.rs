@@ -1,5 +1,6 @@
 #[allow(unused_must_use)];
 #[cfg(test)];
+
 extern crate cmdparse;
 use cmdparse::{Context,OptGroup,Flags};
 use std::str;

@@ -89,9 +89,11 @@ pub mod Flags {
   pub static TakesOptionalArg: uint = 1 << 3;
 }
 
-pub trait OptGroup {
+priv trait WithCtx {
   fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext;
+}
 
+pub trait OptGroup: WithCtx {
   /// Specify valid options for your program. Return Err() if
   /// the option has neither short nor long name or if an option
   /// with the same name was already added.
@@ -554,13 +556,16 @@ impl CmdRes {
   }
 }
 
-impl OptGroup for Cmd {
+impl OptGroup for Cmd { }
+impl OptGroup for Context { }
+
+impl WithCtx for Cmd {
   fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext {
     &mut self.inner_ctx
   }
 }
 
-impl OptGroup for Context {
+impl WithCtx for Context {
   fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext {
     &mut self.inner_ctx
   }
