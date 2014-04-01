@@ -1,7 +1,7 @@
-#[crate_id = "cmdparse"];
-#[crate_type = "lib"];
-#[desc = "Library to parse simple command line options"];
-#[license = "MIT"];
+#![crate_id = "cmdparse"]
+#![crate_type = "lib"]
+#![desc = "Library to parse simple command line options"]
+#![license = "MIT"]
 
 /*!
   Command line option parsing
@@ -129,13 +129,13 @@ pub trait OptGroup: WithCtx {
 
 pub struct Context {
   // The arguments provided by the user.
-  priv raw_args: ~[RawArg],
+  raw_args: ~[RawArg],
   // The arguments left after validation
-  priv residual_args: ~[~str],
+  residual_args: ~[~str],
   // The context containing all the global options.
-  priv inner_ctx: LocalContext,
+  inner_ctx: LocalContext,
   // The map of the authorized commands.
-  priv commands: HashMap<&'static str, Cmd>,
+  commands: HashMap<&'static str, Cmd>,
 }
 
 priv enum RawArg {
@@ -156,8 +156,8 @@ struct LocalContext {
 }
 
 pub struct Cmd {
-  priv inner_ctx: LocalContext,
-  priv result: CmdRes,
+  inner_ctx: LocalContext,
+  result: CmdRes,
 }
 
 #[deriving(Clone)]
@@ -165,11 +165,11 @@ pub struct CmdRes(Rc<RefCell<bool>>);
 
 #[deriving(Clone)]
 pub struct Opt {
-  priv short_name: Option<char>,
-  priv long_name: Option<&'static str>,
-  priv description: Option<&'static str>,
-  priv flags: uint,
-  priv result: Rc<RefCell<Res>>,
+  short_name: Option<char>,
+  long_name: Option<&'static str>,
+  description: Option<&'static str>,
+  flags: uint,
+  result: Rc<RefCell<Res>>,
 }
 
 struct Res {
@@ -454,11 +454,11 @@ impl Opt {
   fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg],
               residual_args: &mut ~[~str]) -> Result<(), ~str> {
 
-    let mut res = self.result.borrow().borrow_mut();
-    res.get().passed += 1;
+    let mut res = self.result.borrow_mut();
+    res.passed += 1;
     if residual_args.len() != 0 {
       return Err(format!("Unexpected argument : {:s}.", residual_args.shift().unwrap()))
-    } else if res.get().passed > 1 && self.has_flag(Flags::Unique) {
+    } else if res.passed > 1 && self.has_flag(Flags::Unique) {
       return Err(format!("The option : {:s} was given more than once", opt_name));
     } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
       if rargs.head().map_or(false, |narg| !narg.option()) {
@@ -470,7 +470,7 @@ impl Opt {
       }
     } else {
       None
-    }.map(|value| res.get().values.push(value));
+    }.map(|value| res.values.push(value));
 
     Ok(())
   }
@@ -484,8 +484,8 @@ impl Opt {
   /// there was no value. print! a error message and the help if the value
   /// was of an invalid type.
   pub fn value_or<T: FromStr>(&self, ctx: &Context, default: T) -> T {
-    let mut res = self.result.borrow().borrow_mut();
-    match res.get().values.head() {
+    let mut res = self.result.borrow_mut();
+    match res.values.head() {
       Some(value) => match from_str(*value) {
         Some(tvalue) => tvalue,
         None => {
@@ -505,9 +505,9 @@ impl Opt {
   /// If the option was given with no value returns Right(true),
   /// or Right(false) if the option wasn't given.
   pub fn take_value<T: FromStr>(&self) -> Result<Option<T>, bool> {
-    let mut res = self.result.borrow().borrow_mut();
-    let passed = res.get().passed;
-    match res.get().values.shift() {
+    let mut res = self.result.borrow_mut();
+    let passed = res.passed;
+    match res.values.shift() {
       // Is there a way to avoid allocation of a new string when T: Str ?
       Some(value) => Ok(from_str(value)),
       None => if passed == 0 {
@@ -521,17 +521,17 @@ impl Opt {
   /// Variant of check() for when the option could be specified an
   /// arbitrary number of times. (eg -vvv for the verbosity level)
   pub fn count(&self) -> uint {
-    self.result.borrow().borrow().get().passed
+    self.result.borrow_mut().passed
   }
 
   /// Variant of take_value() for when the option can receive several values.
   /// eg --output=file1 --output=pipe1
   pub fn take_values<T: FromStr>(&self) -> Result<~[Option<T>], uint> {
-    let mut res = self.result.borrow().borrow_mut();
-    if res.get().values.len() == 0 {
-      Err(res.get().passed)
+    let mut res = self.result.borrow_mut();
+    if res.values.len() == 0 {
+      Err(res.passed)
     } else {
-      Ok(res.get().values.map(|value| from_str(*value)))
+      Ok(res.values.iter().map(|value| from_str(*value)).collect())
     }
   }
 }
@@ -540,8 +540,8 @@ impl CmdRes {
   pub fn check(&self) -> bool {
     match *self {
       CmdRes(ref res) => {
-        let tmp = res.borrow().borrow();
-        *tmp.get()
+        let tmp = res.borrow_mut();
+        *tmp
       }
     }
   }
@@ -549,8 +549,8 @@ impl CmdRes {
   fn set(&self) {
     match *self {
       CmdRes(ref res) => {
-        let mut tmp = res.borrow().borrow_mut();
-        *tmp.get() = true;
+        let mut tmp = res.borrow_mut();
+        *tmp = true;
       }
     }
   }
