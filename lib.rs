@@ -75,6 +75,8 @@ extern crate collections;
 use collections::hashmap::HashMap;
 use std::cast::transmute;
 use std::cell::RefCell;
+use std::fmt::{Show, Formatter};
+use std::fmt;
 use std::from_str::FromStr;
 use std::result::Result;
 use std::rc::Rc;
@@ -163,7 +165,7 @@ pub struct Cmd {
 #[deriving(Clone)]
 pub struct CmdRes(Rc<RefCell<bool>>);
 
-#[deriving(Clone)]
+#[deriving(Clone,Show)]
 pub struct Opt {
   short_name: Option<char>,
   long_name: Option<&'static str>,
@@ -172,6 +174,13 @@ pub struct Opt {
   result: Rc<RefCell<Res>>,
 }
 
+impl Show for Rc<RefCell<Res>> {
+  fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    self.borrow().fmt(formatter)
+  }
+}
+
+#[deriving(Show)]
 struct Res {
   passed: uint,        // Number of time we've seen this option
   values: ~[~str],     // Arguments it's been given
