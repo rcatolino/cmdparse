@@ -91,7 +91,7 @@ pub mod Flags {
   pub static TakesOptionalArg: uint = 1 << 3;
 }
 
-priv trait WithCtx {
+trait WithCtx {
   fn get_inner<'a>(&'a mut self) -> &'a mut LocalContext;
 }
 
@@ -140,7 +140,7 @@ pub struct Context {
   commands: HashMap<&'static str, Cmd>,
 }
 
-priv enum RawArg {
+enum RawArg {
   Short(char),
   Long(~str),
   Neither(~str),
