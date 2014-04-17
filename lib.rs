@@ -146,6 +146,7 @@ enum RawArg {
   Neither(~str),
 }
 
+#[deriving(Show)]
 struct LocalContext {
   alignment: uint,
   // A summary describing the application and/or an exemple.
@@ -157,6 +158,7 @@ struct LocalContext {
   print_options: ~[Opt],
 }
 
+#[deriving(Show)]
 pub struct Cmd {
   inner_ctx: LocalContext,
   result: CmdRes,
@@ -172,6 +174,20 @@ pub struct Opt {
   description: Option<&'static str>,
   flags: uint,
   result: Rc<RefCell<Res>>,
+}
+
+impl<'a> Show for &'a mut Cmd {
+  fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    self.fmt(formatter)
+  }
+}
+
+impl Show for CmdRes {
+  fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    match self {
+      &CmdRes(ref rc) => rc.borrow().fmt(formatter)
+    }
+  }
 }
 
 impl Show for Rc<RefCell<Res>> {
