@@ -232,8 +232,8 @@ fn test_check_result_take_value_multiple_str() {
     Err(_) => {assert!(false); ~"error"}
   };
 
-  assert!(e_val == ~"value");
-  assert!(e_val2 == ~"value2");
+  assert!(e_val == ~"value2");
+  assert!(e_val2 == ~"value");
 }
 
 #[test]
@@ -700,5 +700,5 @@ fn test_command_option_with() {
     Ok(Some(val)) => assert!(val == ~"cvalue"), _ => assert!(false),
   }
 
-  assert!(ctx.get_args().head().unwrap() == &~"argument");
+  assert!(ctx.get_args().as_slice().head().unwrap() == &~"argument");
 }

@@ -131,9 +131,9 @@ pub trait OptGroup: WithCtx {
 
 pub struct Context {
   // The arguments provided by the user.
-  raw_args: ~[RawArg],
+  raw_args: Vec<RawArg>,
   // The arguments left after validation
-  residual_args: ~[~str],
+  residual_args: Vec<~str>,
   // The context containing all the global options.
   inner_ctx: LocalContext,
   // The map of the authorized commands.
@@ -155,7 +155,7 @@ struct LocalContext {
   loptions: HashMap<&'static str, Opt>,
   soptions: HashMap<char, Opt>,
   // List of options added. Needed for print_help
-  print_options: ~[Opt],
+  print_options: Vec<Opt>,
 }
 
 #[deriving(Show)]
@@ -199,21 +199,21 @@ impl Show for Rc<RefCell<Res>> {
 #[deriving(Show)]
 struct Res {
   passed: uint,        // Number of time we've seen this option
-  values: ~[~str],     // Arguments it's been given
+  values: Vec<~str>,     // Arguments it's been given
 }
 
 impl Context {
   pub fn new(description: &'static str, args: ~[~str]) -> Context {
     Context {
       raw_args: Context::prep_args(args),
-      residual_args: ~[],
+      residual_args: Vec::new(),
       inner_ctx: LocalContext::new(description),
       commands: HashMap::new(),
     }
   }
 
-  fn prep_args(args: ~[~str]) -> ~[RawArg] {
-    let mut vect = ~[];
+  fn prep_args(args: ~[~str]) -> Vec<RawArg> {
+    let mut vect = Vec::new();
 
     // skip the program name
     for arg in args.move_iter().skip(1) {
@@ -234,6 +234,7 @@ impl Context {
       }
     }
 
+    vect.reverse();
     vect
   }
 
@@ -271,7 +272,7 @@ impl Context {
   }
 
   /// Get an array containing the residual arguments.
-  pub fn get_args<'a>(&'a mut self) -> &'a mut ~[~str] {
+  pub fn get_args<'a>(&'a mut self) -> &'a mut Vec<~str> {
     &mut self.residual_args
   }
 
@@ -331,14 +332,14 @@ impl LocalContext {
       description: description,
       loptions: HashMap::new(),
       soptions: HashMap::new(),
-      print_options: ~[],
+      print_options: Vec::new(),
     }
   }
 
   fn parse(&mut self, cmds: &mut HashMap<&'static str, Cmd>,
-           rargs: &mut ~[RawArg], residual_args: &mut ~[~str]) -> Result<(), ~str> {
+           rargs: &mut Vec<RawArg>, residual_args: &mut Vec<~str>) -> Result<(), ~str> {
     while rargs.len() > 0 {
-      let raw_arg = rargs.shift().unwrap(); // Can't fail since len() > 0;
+      let raw_arg = rargs.pop().unwrap(); // Can't fail since len() > 0;
       match match match raw_arg {
         Short(sname) => (O(self.soptions.find(&sname)), sname.to_str()),
         Long(lname) => (O(self.loptions.find_equiv(&lname.as_slice())), lname),
@@ -369,7 +370,7 @@ impl LocalContext {
                 flags: uint) -> Result<Opt, &'static str> {
 
     let opt = Opt::new(long_name, short_name, description, flags,
-                       Rc::new(RefCell::new(Res { passed:0, values: ~[] })));
+                       Rc::new(RefCell::new(Res { passed:0, values: Vec::new() })));
     match long_name {
       Some(name) => {
         // The alignment is used in print_help() to make sure the columns are aligned.
@@ -447,8 +448,8 @@ impl Cmd {
           result: CmdRes(Rc::new(RefCell::new(false))) }
   }
 
-  fn validate(&mut self, cmd_name: ~str, rargs: &mut ~[RawArg],
-              residual_args: &mut ~[~str]) -> Result<(), ~str> {
+  fn validate(&mut self, cmd_name: ~str, rargs: &mut Vec<RawArg>,
+              residual_args: &mut Vec<~str>) -> Result<(), ~str> {
     // First check that the command has only been given once
     if residual_args.len() != 0 {
       Err(format!("Unexpected argument : {:s}.", residual_args.shift().unwrap()))
@@ -476,8 +477,8 @@ impl Opt {
     (self.flags & flags) != 0
   }
 
-  fn validate(&self, opt_name: ~str, rargs: &mut ~[RawArg],
-              residual_args: &mut ~[~str]) -> Result<(), ~str> {
+  fn validate(&self, opt_name: ~str, rargs: &mut Vec<RawArg>,
+              residual_args: &mut Vec<~str>) -> Result<(), ~str> {
 
     let mut res = self.result.borrow_mut();
     res.passed += 1;
@@ -486,8 +487,8 @@ impl Opt {
     } else if res.passed > 1 && self.has_flag(Flags::Unique) {
       return Err(format!("The option : {:s} was given more than once", opt_name));
     } else if self.has_flag(Flags::TakesArg | Flags::TakesOptionalArg) {
-      if rargs.head().map_or(false, |narg| !narg.option()) {
-        Some(rargs.shift().unwrap().value())
+      if rargs.last().map_or(false, |narg| !narg.option()) {
+        Some(rargs.pop().unwrap().value())
       } else if self.has_flag(Flags::TakesArg) {
         return Err(format!("Missing argument for option : {:s}", opt_name));
       } else {
@@ -510,7 +511,7 @@ impl Opt {
   /// was of an invalid type.
   pub fn value_or<T: FromStr>(&self, ctx: &Context, default: T) -> T {
     let mut res = self.result.borrow_mut();
-    match res.values.head() {
+    match res.values.as_slice().head() {
       Some(value) => match from_str(*value) {
         Some(tvalue) => tvalue,
         None => {
@@ -532,7 +533,7 @@ impl Opt {
   pub fn take_value<T: FromStr>(&self) -> Result<Option<T>, bool> {
     let mut res = self.result.borrow_mut();
     let passed = res.passed;
-    match res.values.shift() {
+    match res.values.pop() {
       // Is there a way to avoid allocation of a new string when T: Str ?
       Some(value) => Ok(from_str(value)),
       None => if passed == 0 {
